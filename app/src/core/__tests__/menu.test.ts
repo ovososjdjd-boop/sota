@@ -17,6 +17,7 @@ import {
 import { planMenu } from '../menuPlanner';
 import { assessSchedule } from '../menu';
 import { atwaterDiscrepancy } from '../nutrition';
+import { grossFromNet } from '../measures';
 import type { EaterProfile } from '../types';
 
 const adult: EaterProfile = {
@@ -309,6 +310,49 @@ describe('планировщик меню', () => {
     for (const [id, grams] of Object.entries(r.products)) {
       expect(PRODUCT_BY_ID[id], id).toBeDefined();
       expect(grams).toBeGreaterThan(0);
+    }
+  }, 60000);
+
+  it('реальный чек с упаковками не превышает бюджет', async () => {
+    // Ключевая гарантия: бюджет ограничивает то, что человек платит
+    // в кассе, а не абстрактную сумму по граммам. Раньше недельный
+    // план на 5000 ₽ давал чек 5120 ₽.
+    for (const [budget, days, eaters] of [
+      [5000, 7, [adult]],
+      [3500, 7, [adult]],
+      [8000, 14, [adult]],
+      [15000, 30, [adult]],
+      [35000, 30, [adult, woman, child10, child7]],
+    ] as [number, number, EaterProfile[]][]) {
+      const r = await planMenu({ budget, days, eaters }, RECIPES);
+      if (r.status !== 'optimal') continue;
+      expect(r.purchaseCost, `${budget}₽/${days}дн/${eaters.length}чел`)
+        .toBeLessThanOrEqual(budget);
+    }
+  }, 120000);
+
+  it('список покупок точно соответствует меню', async () => {
+    const r = await planMenu({ budget: 6000, days: 7, eaters: [adult] }, RECIPES);
+    expect(r.status).toBe('optimal');
+
+    // сумма ингредиентов всех блюд = заявленная стоимость меню
+    let fromIngredients = 0;
+    for (const [productId, grams] of Object.entries(r.products)) {
+      const product = PRODUCT_BY_ID[productId];
+      expect(product, productId).toBeDefined();
+      fromIngredients += (grossFromNet(product, grams) / 1000) * product.pricePerKg;
+    }
+    expect(fromIngredients).toBeCloseTo(r.totalCost, 0);
+  }, 60000);
+
+  it('остатки упаковок посчитаны и объяснены', async () => {
+    const r = await planMenu({ budget: 5000, days: 7, eaters: [adult] }, RECIPES);
+    expect(r.status).toBe('optimal');
+    expect(r.purchaseCost).toBeGreaterThanOrEqual(r.totalCost);
+    expect(r.leftoverValue).toBeGreaterThan(0);
+    if (r.purchaseCost > r.totalCost * 1.25) {
+      const text = r.explanations.map((e) => e.text).join(' ');
+      expect(text).toMatch(/упаковк/i);
     }
   }, 60000);
 

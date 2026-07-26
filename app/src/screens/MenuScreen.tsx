@@ -197,9 +197,14 @@ export function MenuScreen({ store }: { store: Store }) {
               Меню на {state.days} дн.
             </div>
             <div className="tnum text-money-sm text-surface-900 dark:text-white">
-              {moneyPlain(totals?.cost ?? 0)}{' '}
+              {moneyPlain(menu.purchaseCost || totals?.cost || 0)}{' '}
               <span className="text-lg font-semibold text-surface-400">₽</span>
             </div>
+            {menu.purchaseCost > menu.totalCost * 1.05 && (
+              <div className="text-[11px] text-surface-400">
+                еды на {moneyPlain(menu.totalCost)} ₽ + запас
+              </div>
+            )}
           </div>
           <div className="text-right">
             <div className="tnum text-lg font-bold text-brand-600 dark:text-brand-400">

@@ -6,7 +6,9 @@ import { money, moneyPlain, mass, positions } from '../core/format';
 import { CATEGORY_LABEL, type ProductCategory } from '../core/types';
 import { packsNeeded, grossFromNet } from '../core/measures';
 import type { Store } from '../state/store';
-import type { BasketItem } from '../core/types';
+import type { BasketItem, Product } from '../core/types';
+import { PRODUCT_BY_ID } from '../data/products';
+import { nutrientsForGrams } from '../core/nutrition';
 
 /**
  * Экран покупок: то, с чем человек идёт в магазин.
@@ -60,6 +62,41 @@ interface Line {
   cost: number;
 }
 
+/**
+ * Список покупок строится из МЕНЮ: суммируем ингредиенты всех
+ * запланированных блюд. Так купленное ровно соответствует тому,
+ * что будет приготовлено — иначе список и меню расходятся.
+ */
+function buildLinesFromMenu(products: Record<string, number>): Line[] {
+  const lines: Line[] = [];
+  for (const [productId, netGrams] of Object.entries(products)) {
+    const product: Product | undefined = PRODUCT_BY_ID[productId];
+    if (!product || netGrams <= 0) continue;
+
+    const gross = grossFromNet(product, netGrams);
+    const packs = packsNeeded(product, gross);
+    const item: BasketItem = {
+      product,
+      units: 1,
+      measure: product.measures[0] ?? { kind: 'gram', grams: 100, label: 'г' },
+      grams: netGrams,
+      cost: (gross / 1000) * product.pricePerKg,
+      nutrients: nutrientsForGrams(product.per100g, netGrams),
+      packsToBuy: packs.packs,
+      leftoverGrams: packs.leftover,
+    };
+    lines.push({
+      item,
+      packs: packs.packs,
+      packSize: packs.packSize,
+      totalGrams: packs.totalGrams,
+      leftover: packs.leftover,
+      cost: (packs.totalGrams / 1000) * product.pricePerKg,
+    });
+  }
+  return lines.sort((a, b) => b.cost - a.cost);
+}
+
 function buildLines(items: BasketItem[]): Line[] {
   return items.map((item) => {
     const gross = grossFromNet(item.product, item.grams);
@@ -104,11 +141,18 @@ function toPlainText(lines: Line[], total: number, days: number, eaters: number)
 }
 
 export function ShoppingScreen({ store }: { store: Store }) {
-  const { state, plan } = store;
+  const { state, plan, menu } = store;
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState(false);
 
-  const lines = useMemo(() => (plan ? buildLines(plan.items) : []), [plan]);
+  // Приоритет — меню: список покупок должен соответствовать блюдам,
+  // которые человек будет готовить. Продуктовая корзина — запасной вариант.
+  const lines = useMemo(() => {
+    if (menu?.status === 'optimal' && Object.keys(menu.products).length > 0) {
+      return buildLinesFromMenu(menu.products);
+    }
+    return plan ? buildLines(plan.items) : [];
+  }, [menu, plan]);
 
   const grouped = useMemo(() => {
     const map = new Map<ProductCategory, Line[]>();
@@ -119,7 +163,7 @@ export function ShoppingScreen({ store }: { store: Store }) {
     return AISLE_ORDER.filter((c) => map.has(c)).map((c) => [c, map.get(c)!] as const);
   }, [lines]);
 
-  if (!plan || plan.status !== 'optimal') {
+  if (lines.length === 0) {
     return (
       <div className="px-5 py-10 text-center text-sm text-surface-400">
         Сначала составьте меню на вкладке «Меню».
@@ -186,7 +230,7 @@ export function ShoppingScreen({ store }: { store: Store }) {
       </div>
 
       <div className="space-y-4 px-4 pt-4">
-        {totalPacksCost > plan.totalCost * 1.08 && (
+        {menu?.status === 'optimal' && totalPacksCost > menu.totalCost * 1.08 && (
           <Note tone="info">
             В магазине выйдет дороже расчёта: продукты продаются упаковками.
             Излишек примерно на {money(leftoverValue)} останется на следующий период —

@@ -47,6 +47,7 @@ import {
   type DishDemand,
 } from './menu';
 import { PRODUCT_BY_ID } from '../data/products';
+import { grossFromNet, packsNeeded } from './measures';
 
 export interface MenuRequest {
   budget: number;
@@ -58,6 +59,14 @@ export interface MenuRequest {
 
 export interface MenuResult {
   status: 'optimal' | 'budget_too_low' | 'infeasible';
+  /**
+   * Реальная стоимость закупки с учётом того, что продукты продаются
+   * упаковками. На коротком горизонте может заметно превышать totalCost:
+   * ради 122 г свинины покупается килограммовая пачка.
+   */
+  purchaseCost: number;
+  /** Стоимость остатков, которые перейдут на следующий период */
+  leftoverValue: number;
   schedule: MenuSchedule;
   /** Сколько порций каждого блюда за период */
   demands: DishDemand[];
@@ -77,6 +86,30 @@ interface DishCandidate {
   stats: RecipeStats;
   /** Максимум порций за период */
   maxPortions: number;
+  /**
+   * Штраф за «дробность»: если блюдо требует 122 г свинины, в магазине
+   * придётся купить килограммовую пачку. Оптимизатор, считая только
+   * граммы, выбирал по чуть-чуть отовсюду — реальный чек выходил
+   * на 133% больше расчёта. Штраф отражает эту разницу.
+   */
+  packagingPenalty: number;
+}
+
+/**
+ * Насколько блюдо «дробит» закупку: доля переплаты за упаковки,
+ * если готовить его заданное число раз.
+ */
+function packagingPenaltyFor(stats: RecipeStats, typicalPortions: number): number {
+  let extra = 0;
+  for (const ing of stats.recipe.ingredients) {
+    const product = PRODUCT_BY_ID[ing.productId];
+    if (!product || product.packSizes.length === 0) continue;
+    const need = grossFromNet(product, ing.grams * typicalPortions);
+    const packs = packsNeeded(product, need);
+    extra += ((packs.totalGrams - need) / 1000) * product.pricePerKg;
+  }
+  // нормируем на порцию
+  return extra / Math.max(1, typicalPortions);
 }
 
 /**
@@ -169,10 +202,15 @@ function buildDishModel(
     lines.push(` hi_${key}: ${terms} <= ${(targets[key].max * 1.25).toFixed(3)}`);
   }
 
-  // бюджет
+  // Бюджет ограничивает РЕАЛЬНЫЙ чек, а не сумму по граммам: продукты
+  // продаются упаковками. Точная линеаризация невозможна (ступенчатая
+  // функция), поэтому закладываем ожидаемую переплату в стоимость блюда.
+  // Без этого недельный план на 5000 ₽ давал чек 5120 ₽.
   lines.push(
     ` budget: ` +
-      candidates.map((c, i) => `${c.stats.cost.toFixed(6)} x${i}`).join(' + ') +
+      candidates
+        .map((c, i) => `${(c.stats.cost + c.packagingPenalty * 0.6).toFixed(6)} x${i}`)
+        .join(' + ') +
       ` <= ${budget.toFixed(2)}`,
   );
 
@@ -433,9 +471,16 @@ export async function planMenu(
     const stats = computeRecipeStats(recipe, products);
     if (!stats.valid || stats.nutrients.kcal <= 0) continue;
     if (!matchesDietTags(stats, dietTags, products)) continue;
+    const maxPortions = maxPortionsFor(recipe, request.days, request.eaters.length);
+    // типичное число готовок за период — по правилу неповторения
+    const typical = Math.max(
+      1,
+      Math.min(maxPortions, Math.ceil(request.days / 3) * request.eaters.length),
+    );
     candidates.push({
       stats,
-      maxPortions: maxPortionsFor(recipe, request.days, request.eaters.length),
+      maxPortions,
+      packagingPenalty: packagingPenaltyFor(stats, typical),
     });
   }
 
@@ -449,6 +494,8 @@ export async function planMenu(
     demands: [],
     products: {},
     totalCost: 0,
+    purchaseCost: 0,
+    leftoverValue: 0,
     actual: zeroNutrients(),
     target: targetsToNutrients(targets),
     deviation: { kcal: 0, protein: 0, fat: 0, carbs: 0 },
@@ -563,6 +610,18 @@ export async function planMenu(
     );
   }
 
+  // Реальная стоимость закупки: продукты покупаются упаковками.
+  let purchaseCost = 0;
+  let leftoverValue = 0;
+  for (const [productId, netGrams] of Object.entries(productNeeds)) {
+    const product = products[productId];
+    if (!product) continue;
+    const gross = grossFromNet(product, netGrams);
+    const packs = packsNeeded(product, gross);
+    purchaseCost += (packs.totalGrams / 1000) * product.pricePerKg;
+    leftoverValue += (packs.leftover / 1000) * product.pricePerKg;
+  }
+
   // ── фаза 2: расписание по дням ──
   const dailyKcal = targets.kcal.target / request.days;
   const schedule = buildSchedule(demands, request.days, request.eaters.length, dailyKcal);
@@ -580,11 +639,21 @@ export async function planMenu(
     demands,
     products: productNeeds,
     totalCost,
+    purchaseCost,
+    leftoverValue,
     actual,
     target: targetNutrients,
     deviation,
     solveTimeMs: Date.now() - t0,
-    explanations: explain(schedule, demands, totalCost, request, deviation),
+    explanations: explain(
+      schedule,
+      demands,
+      totalCost,
+      request,
+      deviation,
+      purchaseCost,
+      leftoverValue,
+    ),
   };
 }
 
@@ -628,6 +697,8 @@ function explain(
   totalCost: number,
   request: MenuRequest,
   deviation: Record<NutrientKey, number>,
+  purchaseCost = 0,
+  leftoverValue = 0,
 ): Explanation[] {
   const out: Explanation[] = [];
   const quality = assessSchedule(schedule);
@@ -647,6 +718,19 @@ function explain(
     kind: 'info',
     text: `Разных блюд в меню: ${demands.length}. Готовка — около ${Math.round(quality.avgMinutesPerDay)} мин в день.`,
   });
+
+  // Честно про упаковки: на коротком горизонте переплата велика,
+  // и пользователь должен понимать почему, а не удивляться чеку.
+  if (purchaseCost > totalCost * 1.25 && leftoverValue > 0) {
+    const overpay = Math.round(purchaseCost - totalCost);
+    out.push({
+      kind: 'warning',
+      text:
+        `В магазине выйдет около ${Math.round(purchaseCost)} ₽: продукты продаются ` +
+        `упаковками. Излишек на ${overpay} ₽ останется дома — на более длинном ` +
+        `плане он окупится. Попробуйте период в 2 недели или месяц.`,
+    });
+  }
 
   // самое выгодное блюдо по белку на рубль
   const best = demands
