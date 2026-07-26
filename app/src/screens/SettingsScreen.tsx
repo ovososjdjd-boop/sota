@@ -11,6 +11,7 @@ import {
 } from '../core/types';
 import { dailyTargets } from '../core/nutrition';
 import type { Store } from '../state/store';
+import { PreferencesCard } from './PreferencesCard';
 import { PRODUCT_BY_ID } from '../data/products';
 
 function Field({
@@ -147,8 +148,17 @@ function EaterCard({
 }
 
 export function SettingsScreen({ store }: { store: Store }) {
-  const { state, update, addEater, recalculate, toggleExcluded, setPrice, toggleTheme, reset } =
-    store;
+  const {
+    state,
+    update,
+    addEater,
+    recalculate,
+    recalculateMenu,
+    toggleExcluded,
+    setPrice,
+    toggleTheme,
+    reset,
+  } = store;
 
   return (
     <div className="space-y-4 px-4 py-5 pb-8">
@@ -183,6 +193,36 @@ export function SettingsScreen({ store }: { store: Store }) {
             { value: 30, label: 'Месяц' },
           ]}
         />
+      </Card>
+
+      <PreferencesCard store={store} />
+
+      <Card className="p-5">
+        <h2 className="mb-1 text-base font-bold text-surface-900 dark:text-white">
+          Сколько времени на готовку
+        </h2>
+        <p className="mb-3 text-[12px] leading-snug text-surface-400">
+          Приложение подберёт блюда попроще и чаще будет предлагать
+          разогреть готовое
+        </p>
+        <Segmented
+          value={state.maxCookingMinutes ?? 0}
+          onChange={(v) => {
+            update({ maxCookingMinutes: v || undefined });
+            setTimeout(() => void recalculateMenu(), 30);
+          }}
+          options={[
+            { value: 60, label: '1 час' },
+            { value: 90, label: '1.5 часа' },
+            { value: 0, label: 'Не важно' },
+          ]}
+        />
+        {state.maxCookingMinutes === 60 && (
+          <p className="mt-2.5 text-[12px] leading-snug text-amber-700 dark:text-amber-400">
+            При таком лимите часть приёмов пищи станет проще: бутерброды,
+            творог, фрукты. Полноценные горячие блюда требуют времени.
+          </p>
+        )}
       </Card>
 
       <div>

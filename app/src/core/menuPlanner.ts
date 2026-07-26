@@ -429,16 +429,38 @@ function buildDishModel(
     }
   });
 
-  // время готовки
+  // Время готовки.
+  //
+  // Была ошибка: время делилось на batchPortions целиком, будто одна
+  // готовка обслуживает все порции блюда за период. На деле блюдо
+  // готовится заново каждые keepsDays дней. Из-за заниженной оценки
+  // лимит «60 минут в день» давал реальные 126 минут.
   if (maxMinutesPerDay && maxMinutesPerDay > 0) {
     const timeTerms = candidates
       .map((c, i) => {
-        // блюда с batch cooking готовятся не каждый раз
-        const perPortion = c.stats.recipe.minutes / Math.max(1, c.stats.recipe.batchPortions);
-        return `${perPortion.toFixed(4)} x${i}`;
+        const r = c.stats.recipe;
+        // сколько порций реально покрывает одна готовка
+        const perCook = Math.max(1, Math.min(r.batchPortions, eatersCount * (r.keepsDays + 1)));
+        return `${(r.minutes / perCook).toFixed(4)} x${i}`;
       })
       .join(' + ');
     lines.push(` cook_time: ${timeTerms} <= ${(maxMinutesPerDay * days).toFixed(1)}`);
+
+    // При жёстком лимите одного бюджета времени мало: раскладка не сможет
+    // разместить трудоёмкие блюда, и приёмы останутся пустыми (покрытие
+    // падало до 57%). Требуем достаточную долю блюд, укладывающихся
+    // в лимит по отдельности.
+    if (maxMinutesPerDay <= 75) {
+      const quickTerms = candidates
+        .map((c, i) =>
+          c.stats.recipe.minutes <= maxMinutesPerDay * 0.6 ? `x${i}` : null,
+        )
+        .filter(Boolean)
+        .join(' + ');
+      if (quickTerms) {
+        lines.push(` quick_min: ${quickTerms} >= ${Math.ceil(personDays * 2.2)}`);
+      }
+    }
   }
 
   // Блюда «каждый день»: кофе по утрам — привычка, а не случайный перекус.
@@ -714,7 +736,13 @@ export async function planMenu(
 
   // ── фаза 2: расписание по дням ──
   const dailyKcal = targets.kcal.target / request.days;
-  const schedule = buildSchedule(demands, request.days, request.eaters.length, dailyKcal);
+  const schedule = buildSchedule(
+    demands,
+    request.days,
+    request.eaters.length,
+    dailyKcal,
+    request.maxCookingMinutes,
+  );
 
   const targetNutrients = targetsToNutrients(targets);
   const deviation = {} as Record<NutrientKey, number>;

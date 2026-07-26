@@ -1504,6 +1504,112 @@ export const RECIPES: Recipe[] = [
     minutes: 1, batchPortions: 1, keepsDays: 0, tags: ['vegan', 'gluten-free', 'no-cook', 'quick'],
     ingredients: [{ productId: 'pumpkin_seeds', grams: 30 }],
   },
+  // ═══════════ Быстрые блюда: 15-25 минут ═══════════
+  // В базе было всего 7 основных блюд быстрее 25 минут — при лимите
+  // «час в день» покрытие рациона падало до 57%. Эти блюда закрывают
+  // будни, когда готовить некогда.
+  {
+    id: 'mince_quick_pan', name: 'Фарш с овощами на сковороде', role: 'main',
+    slots: ['lunch','dinner'], minutes: 20, batchPortions: 3, keepsDays: 2, tags: ['quick'],
+    ingredients: [
+      { productId: 'mince', grams: 120, method: 'fried' },
+      { productId: 'frozen_veg_mix', grams: 150, method: 'fried' },
+      { productId: 'onion', grams: 30, method: 'fried' },
+      { productId: 'sunflower_oil', grams: 12 },
+    ],
+  },
+  {
+    id: 'sausage_pasta_quick', name: 'Макароны с сосисками', role: 'main',
+    slots: ['lunch','dinner'], minutes: 18, batchPortions: 2, keepsDays: 1, tags: ['quick'],
+    ingredients: [
+      { productId: 'pasta', grams: 90, method: 'boiled' },
+      { productId: 'sausages', grams: 90, method: 'fried' },
+      { productId: 'ketchup', grams: 20 },
+      { productId: 'sunflower_oil', grams: 8 },
+    ],
+  },
+  {
+    id: 'chicken_fillet_quick', name: 'Куриное филе с рисом за 20 минут', role: 'main',
+    slots: ['lunch','dinner'], minutes: 22, batchPortions: 3, keepsDays: 2, tags: ['quick','gluten-free'],
+    ingredients: [
+      { productId: 'chicken_fillet', grams: 130, method: 'fried' },
+      { productId: 'rice', grams: 70, method: 'boiled' },
+      { productId: 'sour_cream', grams: 25 },
+      { productId: 'sunflower_oil', grams: 10 },
+    ],
+  },
+  {
+    id: 'egg_veg_scramble', name: 'Яичница с овощами и ветчиной', role: 'main',
+    slots: ['breakfast','dinner'], minutes: 14, batchPortions: 1, keepsDays: 0, tags: ['quick','gluten-free'],
+    ingredients: [
+      { productId: 'eggs', grams: 110, method: 'fried' },
+      { productId: 'ham', grams: 50 },
+      { productId: 'tomato', grams: 70, method: 'fried' },
+      { productId: 'sunflower_oil', grams: 8 },
+    ],
+  },
+  {
+    id: 'canned_fish_rice', name: 'Рис с сайрой', role: 'main',
+    slots: ['lunch','dinner'], minutes: 22, batchPortions: 2, keepsDays: 1, tags: ['quick','gluten-free'],
+    ingredients: [
+      { productId: 'rice', grams: 75, method: 'boiled' },
+      { productId: 'canned_saury', grams: 100 },
+      { productId: 'onion', grams: 30, method: 'fried' },
+      { productId: 'sunflower_oil', grams: 8 },
+    ],
+  },
+  {
+    id: 'pollock_pan_quick', name: 'Минтай на сковороде с пюре', role: 'main',
+    slots: ['lunch','dinner'], minutes: 25, batchPortions: 2, keepsDays: 1, tags: ['quick'],
+    ingredients: [
+      { productId: 'pollock_fillet', grams: 150, method: 'fried' },
+      { productId: 'potato', grams: 200, method: 'boiled' },
+      { productId: 'milk', grams: 50 },
+      { productId: 'flour', grams: 15 },
+      { productId: 'sunflower_oil', grams: 12 },
+    ],
+  },
+  {
+    id: 'bulgur_ham_quick', name: 'Булгур с ветчиной', role: 'main',
+    slots: ['lunch','dinner'], minutes: 20, batchPortions: 3, keepsDays: 2, tags: ['quick'],
+    ingredients: [
+      { productId: 'bulgur', grams: 70, method: 'boiled' },
+      { productId: 'ham', grams: 80 },
+      { productId: 'frozen_veg_mix', grams: 100, method: 'fried' },
+      { productId: 'sunflower_oil', grams: 10 },
+    ],
+  },
+  {
+    id: 'noodle_soup_quick', name: 'Быстрый суп с фрикадельками', role: 'soup',
+    slots: ['lunch'], minutes: 25, batchPortions: 4, keepsDays: 2, tags: ['quick'],
+    ingredients: [
+      { productId: 'mince', grams: 90, method: 'boiled' },
+      { productId: 'vermicelli', grams: 30, method: 'boiled' },
+      { productId: 'potato', grams: 80, method: 'boiled' },
+      { productId: 'carrot', grams: 30, method: 'boiled' },
+      { productId: 'onion', grams: 25 },
+    ],
+  },
+  {
+    id: 'cheese_omelet_quick', name: 'Омлет с сыром и ветчиной', role: 'main',
+    slots: ['breakfast','dinner'], minutes: 12, batchPortions: 1, keepsDays: 0, tags: ['quick','gluten-free'],
+    ingredients: [
+      { productId: 'eggs', grams: 110, method: 'fried' },
+      { productId: 'milk', grams: 50 },
+      { productId: 'cheese', grams: 30 },
+      { productId: 'ham', grams: 40 },
+      { productId: 'butter', grams: 8 },
+    ],
+  },
+  {
+    id: 'turkey_veg_quick', name: 'Индейка с овощной смесью', role: 'main',
+    slots: ['lunch','dinner'], minutes: 22, batchPortions: 3, keepsDays: 2, tags: ['quick','gluten-free'],
+    ingredients: [
+      { productId: 'turkey', grams: 130, method: 'fried' },
+      { productId: 'frozen_veg_mix', grams: 160, method: 'fried' },
+      { productId: 'sunflower_oil', grams: 12 },
+    ],
+  },
 ];
 
 

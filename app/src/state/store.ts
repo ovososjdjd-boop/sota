@@ -9,6 +9,7 @@ import { PRODUCTS } from '../data/products';
 import { optimizeBasket } from '../core/optimizer';
 import { planMenu, type MenuResult } from '../core/menuPlanner';
 import { applySwap, recalcProducts, scheduleCost } from '../core/swap';
+import { emptyPreferences, type Liking, type Preferences } from '../core/preferences';
 import type { RecipeStats } from '../core/recipes';
 import { RECIPES } from '../data/recipes';
 
@@ -24,8 +25,12 @@ export interface AppState {
   excluded: string[];
   /** Что уже есть дома: productId → граммы. Вычитается из списка покупок */
   pantry: Record<string, number>;
+  /** Что человек любит и что не хочет видеть в меню */
+  preferences: Preferences;
   onboarded: boolean;
   theme: 'light' | 'dark';
+  /** Максимум времени готовки в день, мин. 0 — без ограничения */
+  maxCookingMinutes?: number;
 }
 
 export function makeEater(partial: Partial<EaterProfile> = {}): EaterProfile {
@@ -51,6 +56,7 @@ const DEFAULT_STATE: AppState = {
   priceOverrides: {},
   excluded: [],
   pantry: {},
+  preferences: emptyPreferences(),
   onboarded: false,
   theme: 'light',
 };
@@ -60,7 +66,15 @@ function load(): AppState {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_STATE;
     const parsed = JSON.parse(raw) as Partial<AppState>;
-    return { ...DEFAULT_STATE, ...parsed };
+    return {
+      ...DEFAULT_STATE,
+      ...parsed,
+      // структура предпочтений могла отсутствовать в старом сохранении
+      preferences: {
+        dishes: parsed.preferences?.dishes ?? {},
+        products: parsed.preferences?.products ?? {},
+      },
+    };
   } catch {
     return DEFAULT_STATE;
   }
@@ -117,7 +131,13 @@ export function useAppState() {
     setCalculatingMenu(true);
     try {
       const result = await planMenu(
-        { budget: state.budget, days: state.days, eaters: state.eaters },
+        {
+          budget: state.budget,
+          days: state.days,
+          eaters: state.eaters,
+          preferences: state.preferences,
+          maxCookingMinutes: state.maxCookingMinutes,
+        },
         RECIPES,
         undefined,
         new Set(state.excluded),
@@ -126,7 +146,14 @@ export function useAppState() {
     } finally {
       setCalculatingMenu(false);
     }
-  }, [state.budget, state.days, state.eaters, state.excluded]);
+  }, [
+    state.budget,
+    state.days,
+    state.eaters,
+    state.excluded,
+    state.preferences,
+    state.maxCookingMinutes,
+  ]);
 
   /**
    * Замена блюда в меню. Пересчитываем только затронутое —
@@ -190,6 +217,28 @@ export function useAppState() {
     });
   }, []);
 
+  /** Отношение к продукту: люблю / редко / не предлагать. */
+  const setProductLiking = useCallback((productId: string, liking: Liking | null) => {
+    setState((s) => {
+      const next = { ...s.preferences.products };
+      if (liking == null) delete next[productId];
+      else next[productId] = liking;
+      return { ...s, preferences: { ...s.preferences, products: next } };
+    });
+    setMenu(null);
+  }, []);
+
+  /** Отношение к блюду, в том числе «каждый день». */
+  const setDishLiking = useCallback((recipeId: string, liking: Liking | null) => {
+    setState((s) => {
+      const next = { ...s.preferences.dishes };
+      if (liking == null) delete next[recipeId];
+      else next[recipeId] = liking;
+      return { ...s, preferences: { ...s.preferences, dishes: next } };
+    });
+    setMenu(null);
+  }, []);
+
   /** Указать, сколько продукта уже есть дома. */
   const setPantry = useCallback((productId: string, grams: number | null) => {
     setState((s) => {
@@ -235,6 +284,8 @@ export function useAppState() {
     removeEater,
     setPrice,
     setPantry,
+    setProductLiking,
+    setDishLiking,
     toggleExcluded,
     toggleTheme,
     recalculate,

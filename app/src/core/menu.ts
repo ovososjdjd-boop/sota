@@ -122,6 +122,10 @@ export function buildSchedule(
   days: number,
   eaters: number,
   dailyKcal: number,
+  /** Максимум времени готовки в день, мин. Фаза 1 задаёт средний бюджет
+   *  времени, но раскладка может собрать все трудоёмкие блюда в один день —
+   *  поэтому лимит нужен и здесь. */
+  maxMinutesPerDay?: number,
 ): MenuSchedule {
   const notes: string[] = [];
 
@@ -223,6 +227,7 @@ export function buildSchedule(
             eaters,
             relax,
             isCoreStage,
+            maxMinutesPerDay,
           );
           if (!pick) continue;
 
@@ -305,7 +310,7 @@ export function buildSchedule(
   // Финальный проход: остатки распределяем по самым «голодным» дням.
   // Здесь уже не заботимся о равномерности подачи — её обеспечили
   // предыдущие проходы. Задача одна: чтобы еда не пропала.
-  sweepRemainder(schedule, remaining, servedDays, eaters);
+  sweepRemainder(schedule, remaining, servedDays, eaters, maxMinutesPerDay);
 
   const unplaced = [...remaining.values()]
     .filter((x) => x.portions > 0)
@@ -326,9 +331,10 @@ export function buildSchedule(
  */
 function sweepRemainder(
   schedule: PlannedDay[],
-  remaining: Map<string, { stats: RecipeStats; portions: number }>,
+  remaining: Map<string, { stats: RecipeStats; portions: number; daily?: boolean }>,
   servedDays: Map<string, number[]>,
   eaters: number,
+  maxMinutesPerDay?: number,
 ): void {
   // Ступенчатое смягчение: сначала пытаемся соблюсти интервал в 2 дня
   // и запрет на три углеводные основы, и только если остатки не расходятся —
@@ -395,8 +401,18 @@ function sweepRemainder(
             }
 
 
-            const serve = Math.min(entry.portions, eaters);
             const cooked = !wasCookedRecently(schedule, recipe, day.index);
+            // Уборщик не должен превращать день в 4 часа у плиты.
+            // Но если день упёрся в лимит, разогретое и готовое к еде
+            // (фрукты, кефир, бутерброды) добавлять можно — иначе
+            // приём останется пустым.
+            if (maxMinutesPerDay && maxMinutesPerDay > 0 && cooked) {
+              const quick = recipe.minutes <= 5;
+              if (!quick && day.minutes + recipe.minutes > maxMinutesPerDay) {
+                continue;
+              }
+            }
+            const serve = Math.min(entry.portions, eaters);
 
             meal.dishes.push({ recipe, stats: entry.stats, portions: serve, cooked });
             addTo(meal.nutrients, entry.stats.nutrients, serve);
@@ -477,11 +493,12 @@ function pickDishForMeal(
   schedule: PlannedDay[],
   day: PlannedDay,
   meal: PlannedMeal,
-  remaining: Map<string, { stats: RecipeStats; portions: number }>,
+  remaining: Map<string, { stats: RecipeStats; portions: number; daily?: boolean }>,
   servedDays: Map<string, number[]>,
   eaters: number,
   relax: Relaxation,
   coreOnly: boolean,
+  maxMinutesPerDay?: number,
 ): { stats: RecipeStats } | null {
   let best: { stats: RecipeStats; score: number } | null = null;
   const coreRoles = CORE_ROLES[meal.slot] ?? [];
@@ -521,6 +538,16 @@ function pickDishForMeal(
     if (!coreOnly && coreRoles.length > 0) {
       const hasCore = meal.dishes.some((x) => coreRoles.includes(x.recipe.role));
       if (!hasCore && !coreRoles.includes(recipe.role)) continue;
+    }
+
+    // Не перегружаем день готовкой. Фаза 1 задаёт средний бюджет времени,
+    // но раскладка может собрать все трудоёмкие блюда в один день —
+    // человек с лимитом «час» получал дни по 4 часа у плиты.
+    if (maxMinutesPerDay && maxMinutesPerDay > 0) {
+      const willCook = !wasCookedRecently(schedule, recipe, day.index);
+      if (willCook && day.minutes + recipe.minutes > maxMinutesPerDay) {
+        continue;
+      }
     }
 
     const contribution = entry.stats.nutrients.kcal * eaters;
