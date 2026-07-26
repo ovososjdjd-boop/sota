@@ -8,3 +8,13 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 );
+
+// Офлайн-режим: регистрируем service worker после загрузки страницы,
+// чтобы не конкурировать за сеть с первой отрисовкой.
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {
+      // офлайн-режим необязателен: приложение работает и без него
+    });
+  });
+}
