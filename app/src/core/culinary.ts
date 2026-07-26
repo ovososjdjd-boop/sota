@@ -52,7 +52,11 @@ export const CATEGORY_RULES: Partial<Record<ProductCategory, CategoryShare>> = {
   fruit: { minEnergyShare: 0.02, maxEnergyShare: 0.15, maxGramsPerPersonDay: 400 },
 
   // Жиры: нужны, но строго ограничены
-  fat: { minEnergyShare: 0.03, maxEnergyShare: 0.12, maxGramsPerPersonDay: 45 },
+  // Потолок 22%, а не 12%: в блюдах масло входит в состав (жарка, заправка),
+  // а не покупается отдельно. При 12% меню недобирало 15% калорий —
+  // солвер упирался в лимит жиров и не мог добрать энергию.
+  // Диапазон согласуется с нормой ВОЗ: жиры 20-35% энергии рациона.
+  fat: { minEnergyShare: 0.03, maxEnergyShare: 0.22, maxGramsPerPersonDay: 60 },
 
   // Сладкое — самое важное ограничение.
   // ВОЗ: свободные сахара менее 10% энергии, желательно менее 5%.
