@@ -30,13 +30,16 @@ function p(
   fat: number,
   carbs: number,
   pricePerKg: number,
-  opts: Partial<Omit<Product, 'id' | 'name' | 'category' | 'per100g' | 'pricePerKg'>> = {},
+  opts: Partial<Omit<Product, 'id' | 'name' | 'category' | 'per100g' | 'pricePerKg'>> & {
+    /** Пищевые волокна, г на 100 г (Скурихин) */
+    fiber?: number;
+  } = {},
 ): Product {
   return {
     id,
     name,
     category,
-    per100g: { kcal, protein, fat, carbs, fiber: opts.per100g?.fiber ?? 0 },
+    per100g: { kcal, protein, fat, carbs, fiber: opts.fiber ?? 0 },
     pricePerKg,
     wasteRatio: opts.wasteRatio ?? 0,
     yields: opts.yields ?? {},
@@ -52,6 +55,7 @@ function p(
 export const PRODUCTS: Product[] = [
   // ───────────────── Крупы и макароны ─────────────────
   p('buckwheat', 'Гречневая крупа', 'grain', 308, 12.6, 3.3, 57.1, 103, {
+    fiber: 11.3,
     yields: { boiled: 2.6 },
     measures: [volumeMeasure('glass', 1.05), volumeMeasure('tbsp', 1.0)],
     packSizes: [800, 900],
@@ -59,6 +63,7 @@ export const PRODUCTS: Product[] = [
     tags: ['vegan', 'gluten-free'],
   }),
   p('rice', 'Рис шлифованный', 'grain', 333, 7.0, 1.0, 74.0, 155, {
+    fiber: 3.0,
     yields: { boiled: 2.8 },
     measures: [volumeMeasure('glass', 0.9), volumeMeasure('tbsp', 1.0)],
     packSizes: [800, 900],
@@ -66,6 +71,7 @@ export const PRODUCTS: Product[] = [
     tags: ['vegan', 'gluten-free'],
   }),
   p('millet', 'Пшено', 'grain', 348, 11.5, 3.3, 66.5, 82, {
+    fiber: 3.6,
     yields: { boiled: 3.0 },
     measures: [volumeMeasure('glass', 1.0), volumeMeasure('tbsp', 1.0)],
     packSizes: [800],
@@ -73,6 +79,7 @@ export const PRODUCTS: Product[] = [
     tags: ['vegan', 'gluten-free'],
   }),
   p('oats', 'Овсяные хлопья «Геркулес»', 'grain', 352, 12.3, 6.2, 61.8, 110, {
+    fiber: 6.0,
     yields: { boiled: 3.0 },
     measures: [volumeMeasure('glass', 0.45), volumeMeasure('tbsp', 0.8)],
     packSizes: [500, 800],
@@ -80,6 +87,7 @@ export const PRODUCTS: Product[] = [
     tags: ['vegan'],
   }),
   p('pearl_barley', 'Крупа перловая', 'grain', 315, 9.3, 1.1, 66.9, 68, {
+    fiber: 7.8,
     yields: { boiled: 3.0 },
     measures: [volumeMeasure('glass', 1.05), volumeMeasure('tbsp', 1.0)],
     packSizes: [800],
@@ -87,6 +95,7 @@ export const PRODUCTS: Product[] = [
     tags: ['vegan'],
   }),
   p('pasta', 'Макароны из пшеницы в/с', 'grain', 344, 10.7, 1.3, 71.5, 168, {
+    fiber: 3.7,
     yields: { boiled: 2.5 },
     measures: [packMeasure(100, 'горсть ≈100 г')],
     packSizes: [400, 450, 900],
@@ -94,12 +103,14 @@ export const PRODUCTS: Product[] = [
     tags: ['vegan'],
   }),
   p('semolina', 'Крупа манная', 'grain', 333, 10.3, 1.0, 70.6, 78, {
+    fiber: 3.6,
     yields: { boiled: 4.0 },
     measures: [volumeMeasure('glass', 0.8), volumeMeasure('tbsp', 1.0)],
     packSizes: [800],
     tags: ['vegan'],
   }),
   p('flour', 'Мука пшеничная', 'grain', 342, 10.3, 1.1, 70.6, 63, {
+    fiber: 3.5,
     measures: [volumeMeasure('glass', 0.8), volumeMeasure('tbsp', 0.83)],
     packSizes: [1000, 2000],
     tags: ['vegan'],
@@ -107,6 +118,7 @@ export const PRODUCTS: Product[] = [
 
   // ───────────────── Бобовые ─────────────────
   p('lentils', 'Чечевица', 'legume', 295, 24.0, 1.5, 46.3, 145, {
+    fiber: 11.5,
     yields: { boiled: 2.5 },
     measures: [volumeMeasure('glass', 0.95), volumeMeasure('tbsp', 1.0)],
     packSizes: [450, 900],
@@ -114,6 +126,7 @@ export const PRODUCTS: Product[] = [
     tags: ['vegan', 'gluten-free'],
   }),
   p('peas_dry', 'Горох сухой', 'legume', 298, 20.5, 2.0, 49.5, 78, {
+    fiber: 11.2,
     yields: { boiled: 2.6 },
     measures: [volumeMeasure('glass', 1.0), volumeMeasure('tbsp', 1.0)],
     packSizes: [800, 900],
@@ -121,6 +134,7 @@ export const PRODUCTS: Product[] = [
     tags: ['vegan', 'gluten-free'],
   }),
   p('beans_dry', 'Фасоль сухая', 'legume', 298, 21.0, 2.0, 47.0, 165, {
+    fiber: 12.4,
     yields: { boiled: 2.5 },
     measures: [volumeMeasure('glass', 0.9), volumeMeasure('tbsp', 1.0)],
     packSizes: [450, 900],
@@ -130,6 +144,7 @@ export const PRODUCTS: Product[] = [
 
   // ───────────────── Хлеб ─────────────────
   p('bread_rye', 'Хлеб ржаной', 'bread', 214, 6.6, 1.2, 40.7, 128, {
+    fiber: 8.3,
     measures: [pieceMeasure(35, 'ломоть')],
     packSizes: [700],
     shelfLifeDays: 5,
@@ -137,6 +152,7 @@ export const PRODUCTS: Product[] = [
     tags: ['vegan'],
   }),
   p('bread_wheat', 'Хлеб пшеничный', 'bread', 242, 7.6, 2.4, 48.6, 128, {
+    fiber: 2.6,
     measures: [pieceMeasure(30, 'ломоть')],
     packSizes: [600, 700],
     shelfLifeDays: 4,
@@ -171,6 +187,7 @@ export const PRODUCTS: Product[] = [
   p('pork', 'Свинина', 'meat', 259, 16.0, 21.6, 0.0, 435, {
     wasteRatio: 0.1,
     yields: { boiled: 0.6, fried: 0.63, stewed: 0.65 },
+    measures: [pieceMeasure(150, 'кусок ≈150 г')],
     packSizes: [1000],
     shelfLifeDays: 4,
     perishable: true,
@@ -178,18 +195,21 @@ export const PRODUCTS: Product[] = [
   p('beef', 'Говядина', 'meat', 187, 18.9, 12.4, 0.0, 760, {
     wasteRatio: 0.12,
     yields: { boiled: 0.58, fried: 0.62, stewed: 0.62 },
+    measures: [pieceMeasure(150, 'кусок ≈150 г')],
     packSizes: [1000],
     shelfLifeDays: 4,
     perishable: true,
   }),
   p('mince', 'Фарш мясной', 'meat', 218, 17.0, 16.5, 0.0, 450, {
     yields: { fried: 0.7, stewed: 0.72 },
+    measures: [pieceMeasure(100, 'котлета ≈100 г'), packMeasure(400, 'пачка 400 г')],
     packSizes: [400, 500, 1000],
     shelfLifeDays: 2,
     perishable: true,
   }),
   p('liver_chicken', 'Печень куриная', 'meat', 137, 20.4, 5.9, 0.7, 280, {
     yields: { boiled: 0.68, fried: 0.72 },
+    measures: [pieceMeasure(120, 'порция ≈120 г')],
     packSizes: [500, 1000],
     shelfLifeDays: 3,
     perishable: true,
@@ -205,6 +225,7 @@ export const PRODUCTS: Product[] = [
   p('fish_frozen', 'Рыба мороженая (минтай)', 'fish', 72, 15.9, 0.9, 0.0, 330, {
     wasteRatio: 0.3,
     yields: { boiled: 0.8, fried: 0.79, baked: 0.8 },
+    measures: [pieceMeasure(150, 'филе ≈150 г')],
     packSizes: [800, 1000],
     shelfLifeDays: 90,
   }),
@@ -243,7 +264,7 @@ export const PRODUCTS: Product[] = [
     packSizes: [180, 200, 400],
     shelfLifeDays: 10,
     perishable: true,
-    tags: ['vegetarian'],
+    tags: ['vegetarian', 'condiment'],
   }),
   p('cheese', 'Сыр полутвёрдый', 'dairy', 350, 23.0, 28.0, 0.0, 970, {
     measures: [pieceMeasure(25, 'ломтик')],
@@ -257,7 +278,7 @@ export const PRODUCTS: Product[] = [
     packSizes: [180, 200],
     shelfLifeDays: 30,
     perishable: true,
-    tags: ['vegetarian'],
+    tags: ['vegetarian', 'condiment'],
   }),
 
   // ───────────────── Яйца ─────────────────
@@ -273,6 +294,7 @@ export const PRODUCTS: Product[] = [
 
   // ───────────────── Овощи ─────────────────
   p('potato', 'Картофель', 'vegetable', 77, 2.0, 0.4, 16.3, 58, {
+    fiber: 1.4,
     wasteRatio: 0.25,
     yields: { boiled: 0.97, fried: 0.6, baked: 0.85 },
     measures: [pieceMeasure(100, 'шт средняя')],
@@ -281,6 +303,7 @@ export const PRODUCTS: Product[] = [
     tags: ['vegan', 'gluten-free'],
   }),
   p('cabbage', 'Капуста белокочанная', 'vegetable', 28, 1.8, 0.1, 4.7, 49, {
+    fiber: 2.0,
     wasteRatio: 0.2,
     yields: { boiled: 0.9, stewed: 0.85 },
     measures: [volumeMeasure('glass', 0.45, 'стакан шинкованной')],
@@ -289,6 +312,7 @@ export const PRODUCTS: Product[] = [
     tags: ['vegan', 'gluten-free'],
   }),
   p('carrot', 'Морковь', 'vegetable', 35, 1.3, 0.1, 6.9, 64, {
+    fiber: 2.4,
     wasteRatio: 0.2,
     yields: { boiled: 0.95, stewed: 0.85 },
     measures: [pieceMeasure(85, 'шт средняя')],
@@ -297,6 +321,7 @@ export const PRODUCTS: Product[] = [
     tags: ['vegan', 'gluten-free'],
   }),
   p('onion', 'Лук репчатый', 'vegetable', 41, 1.4, 0.2, 8.2, 57, {
+    fiber: 3.0,
     wasteRatio: 0.16,
     yields: { fried: 0.5, stewed: 0.7 },
     measures: [pieceMeasure(75, 'шт средняя')],
@@ -305,6 +330,7 @@ export const PRODUCTS: Product[] = [
     tags: ['vegan', 'gluten-free'],
   }),
   p('beet', 'Свёкла', 'vegetable', 42, 1.5, 0.1, 8.8, 57, {
+    fiber: 2.5,
     wasteRatio: 0.2,
     yields: { boiled: 0.95 },
     measures: [pieceMeasure(150, 'шт средняя')],
@@ -313,6 +339,7 @@ export const PRODUCTS: Product[] = [
     tags: ['vegan', 'gluten-free'],
   }),
   p('tomato', 'Помидоры', 'vegetable', 20, 1.1, 0.2, 3.8, 398, {
+    fiber: 1.2,
     wasteRatio: 0.05,
     measures: [pieceMeasure(120, 'шт средний')],
     packSizes: [500, 1000],
@@ -321,6 +348,7 @@ export const PRODUCTS: Product[] = [
     tags: ['vegan', 'gluten-free'],
   }),
   p('cucumber', 'Огурцы', 'vegetable', 14, 0.8, 0.1, 2.5, 248, {
+    fiber: 1.0,
     wasteRatio: 0.05,
     measures: [pieceMeasure(100, 'шт средний')],
     packSizes: [500, 1000],
@@ -331,6 +359,7 @@ export const PRODUCTS: Product[] = [
 
   // ───────────────── Фрукты ─────────────────
   p('apple', 'Яблоки', 'fruit', 47, 0.4, 0.4, 9.8, 210, {
+    fiber: 1.8,
     wasteRatio: 0.1,
     measures: [pieceMeasure(180, 'шт средний')],
     packSizes: [1000],
@@ -338,6 +367,7 @@ export const PRODUCTS: Product[] = [
     tags: ['vegan', 'gluten-free'],
   }),
   p('banana', 'Бананы', 'fruit', 96, 1.5, 0.5, 21.8, 183, {
+    fiber: 1.7,
     wasteRatio: 0.35,
     measures: [pieceMeasure(150, 'шт')],
     packSizes: [1000],

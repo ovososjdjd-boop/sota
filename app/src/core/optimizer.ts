@@ -24,6 +24,16 @@ import type {
 } from './types';
 import { NUTRIENT_KEYS, MEASURE_RELIABILITY } from './types';
 import { periodTargets, zeroNutrients } from './nutrition';
+import {
+  CATEGORY_RULES,
+  PER_PRODUCT_LIMITS,
+  PROTEIN_CATEGORIES,
+  MIN_QUALITY_PROTEIN_SHARE,
+  CONDIMENT_MAX_GRAMS_PER_PERSON_DAY,
+  FIBER_TARGET_PER_PERSON_DAY,
+  FIBER_MIN_SHARE,
+  PRODUCE_MIN_GRAMS_PER_PERSON_DAY,
+} from './culinary';
 import { pickMeasure, grossFromNet, packsNeeded } from './measures';
 
 // highs-js не поставляет типов
@@ -80,6 +90,17 @@ export interface OptimizerWeights {
   inconvenience: number;
   /** Штраф за остатки продуктов */
   leftovers: number;
+  /**
+   * Бережливость: мягкий штраф за трату бюджета.
+   * НЕ минимизация цены (бюджет — ограничение), а тай-брейк:
+   * при равном качестве рациона выбираем более дешёвый вариант.
+   */
+  thrift: number;
+  /**
+   * Награда за качественный белок. Именно она заставляет использовать
+   * свободный бюджет: чем больше денег, тем богаче рацион.
+   */
+  quality: number;
 }
 
 export const DEFAULT_WEIGHTS: OptimizerWeights = {
@@ -87,6 +108,8 @@ export const DEFAULT_WEIGHTS: OptimizerWeights = {
   macro: 12,
   inconvenience: 0.5,
   leftovers: 0.3,
+  thrift: 0.6,
+  quality: 45,
 };
 
 interface Candidate {
@@ -101,6 +124,8 @@ interface Candidate {
   maxUnits: number;
   /** Штраф за неудобство меры */
   penalty: number;
+  /** Сколько раз за период продукт докупается (скоропорт) */
+  shoppingTrips: number;
 }
 
 /** Подготовка кандидата: выбираем базовую меру продукта. */
@@ -125,20 +150,29 @@ function toCandidate(
     fiber: (product.per100g.fiber ?? 0) * k,
   };
 
-  // Разумный предел потребления одного продукта.
-  // Ограничиваем не только «сколько влезет», но и долей рациона:
-  // ни один продукт не должен покрывать больше ~35% энергии.
-  // Это и разнообразие, и резкое сокращение пространства поиска для MILP.
-  const perPersonPerDay = product.category === 'fat' || product.category === 'sweet' ? 2 : 3;
-  const effectiveDays = product.perishable
-    ? Math.min(days, product.shelfLifeDays)
-    : days;
-  let maxUnits = Math.ceil(perPersonPerDay * effectiveDays * eaters);
+  // Предел потребления одного продукта — по граммам на человека в день.
+  // Именно это не даёт оптимизатору выдать «21 помидор» или «9 стаканов сахара».
+  const limit = PER_PRODUCT_LIMITS[product.category];
 
-  // энергетический потолок: не больше 35% суточной энергии семьи из одного продукта
+  // Скоропорт не «умирает» за период: люди ходят в магазин несколько раз.
+  // Раньше молоко на 30 дней резалось до 7 дней хранения, и месячный план
+  // за 10 000 ₽ объявлялся невозможным, хотя реально стоит ~9 600 ₽.
+  const effectiveDays = days;
+  const shoppingTrips = product.perishable
+    ? Math.max(1, Math.ceil(days / Math.max(1, product.shelfLifeDays)))
+    : 1;
+
+  const isCondiment = product.tags.includes('condiment');
+  const perDayCap = isCondiment
+    ? Math.min(limit.maxGramsPerPersonDay, CONDIMENT_MAX_GRAMS_PER_PERSON_DAY)
+    : limit.maxGramsPerPersonDay;
+  const maxGrams = perDayCap * effectiveDays * eaters;
+  let maxUnits = Math.floor(maxGrams / unitGrams);
+
+  // энергетический потолок: не больше 30% энергии рациона из одного продукта
   if (unitNutrients.kcal > 0) {
-    const energyCap = (2200 * eaters * days * 0.35) / unitNutrients.kcal;
-    maxUnits = Math.min(maxUnits, Math.ceil(energyCap));
+    const energyCap = (2200 * eaters * days * 0.3) / unitNutrients.kcal;
+    maxUnits = Math.min(maxUnits, Math.floor(energyCap));
   }
   maxUnits = Math.max(1, Math.min(maxUnits, 60));
 
@@ -146,7 +180,7 @@ function toCandidate(
   const penalty = 1 - reliability;
 
   if (unitCost <= 0 || maxUnits <= 0) return null;
-  return { product, unitGrams, unitCost, unitNutrients, maxUnits, penalty };
+  return { product, unitGrams, unitCost, unitNutrients, maxUnits, penalty, shoppingTrips };
 }
 
 /**
@@ -205,6 +239,8 @@ function buildModel(
   budget: number,
   weights: OptimizerWeights,
   integer: boolean,
+  /** человеко-дней в периоде: дни × число едоков */
+  personDays: number,
 ): string {
   const lines: string[] = [];
 
@@ -222,6 +258,32 @@ function buildModel(
       objTerms.push(`${(c.penalty * weights.inconvenience).toFixed(6)} u${i}`);
     }
   });
+
+  // Мягкий штраф за стоимость — тай-брейк между равноценными решениями.
+  // Бюджет остаётся ограничением: мы не минимизируем цену, иначе получим
+  // несъедобную «диету Стиглера». Но без штрафа солвер берёт дорогое
+  // просто потому, что деньги ему ничего не стоят (реальный прогон:
+  // 17 помидоров на 855 ₽ там, где хватало круп).
+  if (weights.thrift > 0 && budget > 0) {
+    const perRuble = weights.thrift / budget;
+    candidates.forEach((c, i) => {
+      objTerms.push(`${(perRuble * c.unitCost).toFixed(9)} u${i}`);
+    });
+  }
+
+  // Награда за качество рациона — то, на что тратится свободный бюджет.
+  // Без неё оптимизатор, закрыв КБЖУ дёшево, останавливается: бюджеты
+  // 2000 ₽ и 5000 ₽ давали ОДИНАКОВУЮ корзину, деньги игнорировались.
+  // Теперь лишние деньги идут в качественный белок и разнообразие.
+  if (weights.quality > 0) {
+    const scale = weights.quality / Math.max(1, targets.protein.target);
+    candidates.forEach((c, i) => {
+      const p = c.unitNutrients.protein;
+      if (p > 0 && PROTEIN_CATEGORIES.includes(c.product.category)) {
+        objTerms.push(`-${(scale * p).toFixed(9)} u${i}`);
+      }
+    });
+  }
   lines.push('Minimize', ' obj: ' + objTerms.join(' + '));
 
   // ── ограничения ──
@@ -266,6 +328,86 @@ function buildModel(
     .map((c, i) => `${c.unitCost.toFixed(6)} u${i}`)
     .join(' + ');
   lines.push(` budget: ${costTerms} <= ${budget.toFixed(2)}`);
+
+  // ── КУЛИНАРНЫЕ ОГРАНИЧЕНИЯ ──
+  // Без них решение математически верно, но есть его невозможно
+  // (реальный прогон давал 21 помидор и 9 стаканов сахара).
+  const totalKcal = targets.kcal.target;
+
+  // доли категорий в энергии рациона
+  const byCategory = new Map<string, number[]>();
+  candidates.forEach((c, i) => {
+    const list = byCategory.get(c.product.category) ?? [];
+    list.push(i);
+    byCategory.set(c.product.category, list);
+  });
+
+  for (const [category, indices] of byCategory) {
+    const rule = CATEGORY_RULES[category as keyof typeof CATEGORY_RULES];
+    if (!rule) continue;
+
+    const energyTerms = indices
+      .filter((i) => candidates[i].unitNutrients.kcal > 0)
+      .map((i) => `${candidates[i].unitNutrients.kcal.toFixed(6)} u${i}`)
+      .join(' + ');
+    if (!energyTerms) continue;
+
+    if (rule.maxEnergyShare < 1) {
+      lines.push(
+        ` catmax_${category}: ${energyTerms} <= ${(totalKcal * rule.maxEnergyShare).toFixed(2)}`,
+      );
+    }
+    // Минимальную долю требуем только если категория вообще доступна
+    // и в ней достаточно позиций — иначе задача станет невыполнимой.
+    if (rule.minEnergyShare > 0 && indices.length > 0) {
+      lines.push(
+        ` catmin_${category}: ${energyTerms} >= ${(totalKcal * rule.minEnergyShare).toFixed(2)}`,
+      );
+    }
+  }
+
+  // качественный белок: не менее 45% белка из мяса/рыбы/молочки/яиц/бобовых
+  const qualityIdx = candidates
+    .map((c, i) => (PROTEIN_CATEGORIES.includes(c.product.category) ? i : -1))
+    .filter((i) => i >= 0 && candidates[i].unitNutrients.protein > 0);
+
+  if (qualityIdx.length > 0) {
+    const terms = qualityIdx
+      .map((i) => `${candidates[i].unitNutrients.protein.toFixed(6)} u${i}`)
+      .join(' + ');
+    lines.push(
+      ` quality_protein: ${terms} >= ${(targets.protein.target * MIN_QUALITY_PROTEIN_SHARE).toFixed(2)}`,
+    );
+  }
+
+  // Клетчатка: норма ~25 г/сут. Без этого ограничения оптимизатор
+  // её просто игнорирует — она не входит в целевую функцию по КБЖУ.
+  const fiberTerms = candidates
+    .map((c, i) => {
+      const v = c.unitNutrients.fiber ?? 0;
+      return v > 0 ? `${v.toFixed(6)} u${i}` : null;
+    })
+    .filter(Boolean)
+    .join(' + ');
+  if (fiberTerms && personDays > 0) {
+    const need = FIBER_TARGET_PER_PERSON_DAY * personDays * FIBER_MIN_SHARE;
+    lines.push(` fiber_min: ${fiberTerms} >= ${need.toFixed(2)}`);
+  }
+
+  // Овощи и фрукты: рекомендация ВОЗ — от 400 г в сутки.
+  const produceTerms = candidates
+    .map((c, i) =>
+      c.product.category === 'vegetable' || c.product.category === 'fruit'
+        ? `${c.unitGrams.toFixed(3)} u${i}`
+        : null,
+    )
+    .filter(Boolean)
+    .join(' + ');
+  if (produceTerms && personDays > 0) {
+    lines.push(
+      ` produce_min: ${produceTerms} >= ${(PRODUCE_MIN_GRAMS_PER_PERSON_DAY * personDays).toFixed(1)}`,
+    );
+  }
 
   // ── границы переменных ──
   lines.push('Bounds');
@@ -313,6 +455,7 @@ export async function optimizeBasket(
   const highs = await getSolver();
 
   const targets = periodTargets(request.eaters, request.days);
+  const personDays = request.days * request.eaters.length;
 
   // фильтрация по предпочтениям и ограничениям
   const excluded = new Set(request.eaters.flatMap((e) => e.excludedProducts));
@@ -348,7 +491,7 @@ export async function optimizeBasket(
   // ── ЭТАП 1: LP-релаксация на полной базе ──
   let shortlist = candidates;
   if (candidates.length > SHORTLIST_SIZE) {
-    const lpModel = buildModel(candidates, targets, request.budget, weights, false);
+    const lpModel = buildModel(candidates, targets, request.budget, weights, false, personDays);
     const lpSol = highs.solve(lpModel, { output_flag: false });
 
     if (lpSol.Status === 'Optimal') {
@@ -364,11 +507,11 @@ export async function optimizeBasket(
   // ── ЭТАП 2: целочисленный MILP на шорт-листе ──
   // Сначала быстро проверяем LP-выполнимость: если даже дробное решение
   // не существует, бюджета действительно не хватает — MILP гонять незачем.
-  const feasibilityModel = buildModel(shortlist, targets, request.budget, weights, false);
+  const feasibilityModel = buildModel(shortlist, targets, request.budget, weights, false, personDays);
   const feasibility = highs.solve(feasibilityModel, { output_flag: false });
 
   if (feasibility.Status !== 'Optimal') {
-    const minBudget = await findMinimumBudget(highs, shortlist, targets, weights);
+    const minBudget = await findMinimumBudget(highs, shortlist, targets, weights, personDays);
     return {
       status: 'budget_too_low',
       items: [],
@@ -392,7 +535,7 @@ export async function optimizeBasket(
   // Сужаем границы по LP-решению — главный рычаг скорости MILP.
   const bounded = tightenBounds(shortlist, feasibility);
 
-  const milpModel = buildModel(bounded, targets, request.budget, weights, true);
+  const milpModel = buildModel(bounded, targets, request.budget, weights, true, personDays);
   const sol = highs.solve(milpModel, {
     output_flag: false,
     // Абсолютный зазор, а не относительный: целевая функция стремится к нулю
@@ -409,7 +552,7 @@ export async function optimizeBasket(
 
   if (!hasSolution) {
     // бюджет недостижим — считаем минимально возможный
-    const minBudget = await findMinimumBudget(highs, shortlist, targets, weights);
+    const minBudget = await findMinimumBudget(highs, shortlist, targets, weights, personDays);
     return {
       status: 'budget_too_low',
       items: [],
@@ -513,6 +656,7 @@ async function findMinimumBudget(
   candidates: Candidate[],
   targets: NutrientTargets,
   weights: OptimizerWeights,
+  personDays: number,
 ): Promise<number | undefined> {
   let lo = 0;
   let hi = 200000;
@@ -520,7 +664,7 @@ async function findMinimumBudget(
 
   for (let iter = 0; iter < 18 && hi - lo > 25; iter++) {
     const mid = (lo + hi) / 2;
-    const model = buildModel(candidates, targets, mid, weights, false);
+    const model = buildModel(candidates, targets, mid, weights, false, personDays);
     const sol = highs.solve(model, { output_flag: false });
     if (sol.Status === 'Optimal') {
       found = mid;
@@ -542,10 +686,23 @@ function buildExplanations(
   const out: Explanation[] = [];
 
   const left = request.budget - totalCost;
-  if (left > request.budget * 0.05) {
+  const leftShare = request.budget > 0 ? left / request.budget : 0;
+
+  // Честное объяснение остатка. Часто рацион закрывается дешевле бюджета:
+  // калорийная норма достигается раньше, чем кончаются деньги.
+  // Молча «съедать» разницу нельзя — пользователь должен понимать, почему.
+  if (leftShare > 0.25) {
     out.push({
       kind: 'info',
-      text: `Уложились с запасом: остаётся ${Math.round(left)} ₽. Можно добавить разнообразия.`,
+      text:
+        `Остаётся ${Math.round(left)} ₽ — и это нормально. Норма по калориям ` +
+        `и белку закрывается дешевле вашего бюджета. Деньги можно потратить ` +
+        `на любимые продукты или отложить.`,
+    });
+  } else if (left > request.budget * 0.05) {
+    out.push({
+      kind: 'info',
+      text: `Уложились с запасом: остаётся ${Math.round(left)} ₽.`,
     });
   }
 
