@@ -407,7 +407,13 @@ function sweepRemainder(
             // (фрукты, кефир, бутерброды) добавлять можно — иначе
             // приём останется пустым.
             if (maxMinutesPerDay && maxMinutesPerDay > 0 && cooked) {
-              const quick = recipe.minutes <= 5;
+              // Пустой основной приём хуже небольшого превышения лимита.
+              // Для завтрака, обеда и ужина допускаем блюда до 15 минут
+              // сверх бюджета — это бутерброд или яичница, не готовка.
+              const isMain = meal.slot !== 'snack';
+              const isEmpty = meal.dishes.length === 0;
+              const allowance = isMain && isEmpty ? 15 : 5;
+              const quick = recipe.minutes <= allowance;
               if (!quick && day.minutes + recipe.minutes > maxMinutesPerDay) {
                 continue;
               }
@@ -558,8 +564,17 @@ function pickDishForMeal(
     const fitError = Math.abs(deficit - contribution) / Math.max(1, meal.targetKcal);
     let score = 1 - fitError;
 
-    // блюда-привычки размещаются в первую очередь
+    // Блюда-привычки размещаются в первую очередь, но НЕ занимают
+    // основной приём: кофе — дополнение к завтраку, а не завтрак.
+    // Без этой проверки кофе съедал слот, и день оставался без еды.
     if (entry.daily) {
+      const isLight = recipe.role === 'drink' || recipe.role === 'snack';
+      const coreRolesHere = CORE_ROLES[meal.slot] ?? [];
+      const mealHasCore =
+        coreRolesHere.length === 0 ||
+        meal.dishes.some((x) => coreRolesHere.includes(x.recipe.role));
+      if (isLight && !mealHasCore && meal.slot !== 'snack') continue;
+
       const first = { stats: entry.stats, score: 100 };
       if (!best || first.score > best.score) best = first;
       continue;
