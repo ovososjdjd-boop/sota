@@ -40,6 +40,11 @@ import {
 } from './culinary';
 import { getSolver } from './optimizer';
 import {
+  dishPreference,
+  emptyPreferences,
+  type Preferences,
+} from './preferences';
+import {
   buildSchedule,
   assessSchedule,
   MIN_REPEAT_GAP_DAYS,
@@ -55,6 +60,10 @@ export interface MenuRequest {
   eaters: EaterProfile[];
   /** Максимум времени готовки в день, мин */
   maxCookingMinutes?: number;
+  /** Что пользователь любит и что не хочет видеть */
+  preferences?: Preferences;
+  /** Целевой белок, г/кг веса. Задаётся отдельно от калорий */
+  proteinPerKg?: number;
 }
 
 export interface MenuResult {
@@ -86,6 +95,8 @@ interface DishCandidate {
   stats: RecipeStats;
   /** Максимум порций за период */
   maxPortions: number;
+  /** Множитель предпочтения: >1 любимое, <1 нежелательное */
+  preference: number;
   /**
    * Штраф за «дробность»: если блюдо требует 122 г свинины, в магазине
    * придётся купить килограммовую пачку. Оптимизатор, считая только
@@ -170,6 +181,18 @@ function buildDishModel(
       objTerms.push(`${(perRuble * c.stats.cost).toFixed(9)} x${i}`);
     });
   }
+
+  // Предпочтения пользователя. Любимое блюдо получает отрицательный
+  // вклад в целевую функцию (мы минимизируем), нежеланное — штраф.
+  // Масштаб подобран так, чтобы предпочтения ощутимо влияли на выбор,
+  // но не ломали КБЖУ и бюджет.
+  candidates.forEach((c, i) => {
+    const delta = c.preference - 1;
+    if (Math.abs(delta) > 0.01) {
+      const bonus = delta * 6;
+      objTerms.push(`${bonus > 0 ? '-' : ''}${Math.abs(bonus).toFixed(6)} x${i}`);
+    }
+  });
 
   // награда за качественный белок — на что тратится свободный бюджет
   const qScale = 45 / Math.max(1, targets.protein.target);
@@ -418,6 +441,14 @@ function buildDishModel(
     lines.push(` cook_time: ${timeTerms} <= ${(maxMinutesPerDay * days).toFixed(1)}`);
   }
 
+  // Блюда «каждый день»: кофе по утрам — привычка, а не случайный перекус.
+  // Требуем ровно по одной подаче на каждый день периода.
+  candidates.forEach((c, i) => {
+    if (c.preference >= 3) {
+      lines.push(` always_${i}: x${i} >= ${personDays}`);
+    }
+  });
+
   // Разнообразие: ни одно блюдо не даёт больше 12% энергии рациона.
   // Без этого солвер набирал 60 порций самого дешёвого блюда и обходился
   // 22 позициями из 51 — разложить такое в расписание невозможно,
@@ -427,6 +458,8 @@ function buildDishModel(
   // Чем длиннее период, тем меньше должна быть доля.
   const maxDishShare = days >= 21 ? 0.05 : days >= 12 ? 0.08 : 0.12;
   candidates.forEach((c, i) => {
+    // блюда «каждый день» под лимит разнообразия не попадают
+    if (c.preference >= 3) return;
     const k = c.stats.nutrients.kcal;
     if (k > 0) {
       lines.push(
@@ -483,6 +516,7 @@ export async function planMenu(
 
   const targets = periodTargets(request.eaters, request.days);
   const personDays = request.days * request.eaters.length;
+  const prefs = request.preferences ?? emptyPreferences();
 
   const dietTags = [...new Set(request.eaters.flatMap((e) => e.dietTags))];
   const allExcluded = new Set([
@@ -497,7 +531,14 @@ export async function planMenu(
     const stats = computeRecipeStats(recipe, products);
     if (!stats.valid || stats.nutrients.kcal <= 0) continue;
     if (!matchesDietTags(stats, dietTags, products)) continue;
-    const maxPortions = maxPortionsFor(recipe, request.days, request.eaters.length);
+    const preference = dishPreference(recipe, prefs, products);
+    // «не предлагать» — блюдо вообще не рассматривается
+    if (preference === 0) continue;
+
+    const maxPortions =
+      preference >= 3
+        ? request.days * request.eaters.length
+        : maxPortionsFor(recipe, request.days, request.eaters.length);
     // типичное число готовок за период — по правилу неповторения
     const typical = Math.max(
       1,
@@ -506,6 +547,7 @@ export async function planMenu(
     candidates.push({
       stats,
       maxPortions,
+      preference,
       packagingPenalty: packagingPenaltyFor(stats, typical),
     });
   }
@@ -628,7 +670,7 @@ export async function planMenu(
     const portions = Math.round(sol.Columns?.[`x${i}`]?.Primal ?? 0);
     if (portions <= 0) return;
 
-    demands.push({ stats: c.stats, portions });
+    demands.push({ stats: c.stats, portions, daily: c.preference >= 3 });
     totalCost += c.stats.cost * portions;
 
     actual.kcal += c.stats.nutrients.kcal * portions;

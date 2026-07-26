@@ -67,6 +67,8 @@ export interface DishDemand {
   stats: RecipeStats;
   /** Всего порций за период на всю семью */
   portions: number;
+  /** Блюдо-привычка: подаётся каждый день, правило неповторения не действует */
+  daily?: boolean;
 }
 
 const SLOT_ORDER: MealSlot[] = ['breakfast', 'lunch', 'snack', 'dinner'];
@@ -141,11 +143,15 @@ export function buildSchedule(
   const servedDays = new Map<string, number[]>();
 
   /** Остаток порций к размещению */
-  const remaining = new Map<string, { stats: RecipeStats; portions: number }>();
+  const remaining = new Map<
+    string,
+    { stats: RecipeStats; portions: number; daily?: boolean }
+  >();
   for (const d of demands) {
     remaining.set(d.stats.recipe.id, {
       stats: d.stats,
       portions: Math.round(d.portions),
+      daily: d.daily,
     });
   }
 
@@ -234,6 +240,31 @@ export function buildSchedule(
           const roomKcal =
             meal.targetKcal * relax.overfillFactor - meal.nutrients.kcal;
           const byRoom = Math.max(1, Math.floor(roomKcal / perPortionKcal));
+
+          // Блюдо-привычка съедается по одной порции на человека в день.
+          // Без этого 30 порций кофе укладывались в 11 дней пачками.
+          const entryIsDaily = remaining.get(pick.stats.recipe.id)?.daily === true;
+          if (entryIsDaily) {
+            const serveDaily = Math.min(entry.portions, eaters);
+            const cookedD = true;
+            meal.dishes.push({
+              recipe: pick.stats.recipe,
+              stats: pick.stats,
+              portions: serveDaily,
+              cooked: cookedD,
+            });
+            addTo(meal.nutrients, pick.stats.nutrients, serveDaily);
+            addTo(day.nutrients, pick.stats.nutrients, serveDaily);
+            meal.minutes += pick.stats.recipe.minutes;
+            day.minutes += pick.stats.recipe.minutes;
+            const listD = servedDays.get(pick.stats.recipe.id) ?? [];
+            listD.push(day.index);
+            servedDays.set(pick.stats.recipe.id, listD);
+            entry.portions -= serveDaily;
+            if (entry.portions <= 0) remaining.delete(pick.stats.recipe.id);
+            progress = true;
+            continue;
+          }
           // Равномерность: не вываливаем весь запас блюда в один приём.
           // Делим остаток на число подач, которые ещё можно сделать
           // с соблюдением правила неповторения.
@@ -464,9 +495,15 @@ function pickDishForMeal(
     if (meal.dishes.length >= relax.maxDishes) continue;
     if (meal.dishes.some((x) => x.recipe.id === recipe.id)) continue;
 
-    // правило неповторения (СанПиН)
+    // Правило неповторения (СанПиН). Не действует для блюд-привычек:
+    // если человек сказал «кофе каждое утро», это его осознанный выбор.
     const served = servedDays.get(recipe.id) ?? [];
-    if (served.some((d) => Math.abs(day.index - d) < relax.repeatGap)) continue;
+    const isDaily = entry.daily === true;
+    if (!isDaily && served.some((d) => Math.abs(day.index - d) < relax.repeatGap)) {
+      continue;
+    }
+    // привычка подаётся ровно один раз в день, а не пачкой
+    if (isDaily && served.includes(day.index)) continue;
 
     // две «углеводные основы» в одном приёме — не разнообразие, а ошибка
     const group = ROLE_GROUP[recipe.role] ?? recipe.role;
@@ -493,6 +530,13 @@ function pickDishForMeal(
     const deficit = meal.targetKcal - meal.nutrients.kcal;
     const fitError = Math.abs(deficit - contribution) / Math.max(1, meal.targetKcal);
     let score = 1 - fitError;
+
+    // блюда-привычки размещаются в первую очередь
+    if (entry.daily) {
+      const first = { stats: entry.stats, score: 100 };
+      if (!best || first.score > best.score) best = first;
+      continue;
+    }
 
     // Разнообразие — главный критерий после попадания в калорийность.
     // Исследования menu fatigue: приедание к 3-4 неделе — основная причина,
