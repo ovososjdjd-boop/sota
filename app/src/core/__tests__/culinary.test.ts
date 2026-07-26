@@ -11,6 +11,8 @@ import { optimizeBasket } from '../optimizer';
 import { PRODUCTS } from '../../data/products';
 import type { EaterProfile, PlanResult } from '../types';
 import { PROTEIN_CATEGORIES } from '../culinary';
+import { dailyPortion, pickMeasure } from '../measures';
+import { PRODUCT_BY_ID } from '../../data/products';
 
 const eater: EaterProfile = {
   id: '1',
@@ -209,6 +211,49 @@ describe('реальные жизненные сценарии', () => {
       expect(r.solveTimeMs, `${b}₽/${d}д/${e.length}чел`).toBeLessThan(4000);
     }
   }, 90000);
+});
+
+describe('читаемость порций на длинных периодах', () => {
+  it('месячный план не выдаёт «247 ложек» — показывает суточную норму', async () => {
+    const r = await plan(30000, 30, [eater, eater, eater, eater].map((e, i) => ({ ...e, id: String(i) })));
+    expect(r.status).toBe('optimal');
+    for (const item of r.items) {
+      const d = dailyPortion(item.product, item.grams, 30, 4);
+      expect(d, item.product.name).not.toBeNull();
+      expect(d!.preferDaily).toBe(true);
+      // количество единиц в суточной порции должно быть небольшим
+      // (проверяем именно число в начале, а не «200 мл» внутри названия меры)
+      const leading = d!.text.match(/^(\d+)/);
+      if (leading) {
+        expect(Number(leading[1]), `${item.product.name}: ${d!.text}`).toBeLessThanOrEqual(12);
+      }
+    }
+  }, 60000);
+
+  it('редкие продукты показываются частотой, а не долей штуки', () => {
+    const herring = PRODUCT_BY_ID['herring'];
+    // 300 г сельди на 30 человеко-дней = 10 г/день, то есть раз в месяц
+    const d = dailyPortion(herring, 300, 30, 1);
+    expect(d!.text).toMatch(/раз в \d+ дн/);
+    expect(d!.text).not.toMatch(/^0/);
+  });
+
+  it('крупа отмеряется стаканом, а не 13 ложками', () => {
+    const rice = PRODUCT_BY_ID['rice'];
+    const q = pickMeasure(rice, 180); // ровно стакан
+    expect(q!.measure.kind).toBe('glass');
+    expect(q!.units).toBeLessThanOrEqual(2);
+  });
+
+  it('в списке нет позиций реже раза в неделю', async () => {
+    // раньше на месячном плане проходили «груша раз в 120 дней»
+    const r = await plan(30000, 30, [eater, eater, eater, eater].map((e, i) => ({ ...e, id: String(i) })));
+    const personDays = 30 * 4;
+    for (const item of r.items) {
+      const gramsPerPersonWeek = (item.grams / personDays) * 7;
+      expect(gramsPerPersonWeek, item.product.name).toBeGreaterThanOrEqual(24);
+    }
+  }, 60000);
 });
 
 describe('честность перед пользователем', () => {

@@ -589,11 +589,18 @@ export async function optimizeBasket(
   let totalCost = 0;
   const actual = zeroNutrients();
 
-  // Порог значимости: позиции, дающие меньше 1% энергии рациона и
-  // микроскопические по массе, только засоряют список покупок
-  // («1 шт кураги» на неделю — не покупка, а шум).
+  // Порог значимости. Позиции-крохи только засоряют список покупок:
+  // «1 шт кураги» на неделю или «груша раз в 120 дней» — не покупка, а шум.
+  // Порог по массе обязан расти вместе с периодом и числом едоков,
+  // иначе на месячном плане мусор проходит фильтр.
   const MIN_ITEM_KCAL_SHARE = 0.004;
   const MIN_ITEM_GRAMS = 40;
+  // продукт должен появляться в рационе хотя бы раз в неделю
+  const MIN_GRAMS_PER_PERSON_WEEK = 25;
+  const minTotalGrams = Math.max(
+    MIN_ITEM_GRAMS,
+    (MIN_GRAMS_PER_PERSON_WEEK * personDays) / 7,
+  );
 
   bounded.forEach((c, i) => {
     const units = Math.round(sol.Columns[`u${i}`]?.Primal ?? 0);
@@ -602,8 +609,8 @@ export async function optimizeBasket(
     const itemKcal = c.unitNutrients.kcal * units;
     const itemGrams = c.unitGrams * units;
     const negligible =
-      itemKcal < targets.kcal.target * MIN_ITEM_KCAL_SHARE &&
-      itemGrams < MIN_ITEM_GRAMS;
+      itemKcal < targets.kcal.target * MIN_ITEM_KCAL_SHARE ||
+      itemGrams < minTotalGrams;
     if (negligible) return;
 
     const netGrams = units * c.unitGrams;

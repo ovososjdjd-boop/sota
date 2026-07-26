@@ -96,8 +96,10 @@ export function pickMeasure(
       const grams = units * measure.grams;
       const relativeError = Math.abs(grams - targetGrams) / targetGrams;
 
-      // штраф за слишком большое число единиц: «17 ложек» неудобно
-      const bulkPenalty = units > 12 ? (units - 12) * 0.02 : 0;
+      // Штраф за громоздкость. Раньше порог был 12 единиц, и «13 ложек риса»
+      // проходило как норма, хотя это ровно 1 стакан. Человеку удобно
+      // отмерять до ~6 одинаковых единиц, дальше растёт и время, и ошибка.
+      const bulkPenalty = units > 6 ? (units - 6) * 0.06 : 0;
       // бонус за круглые числа
       const roundBonus = Number.isInteger(units) ? 0.05 : 0;
 
@@ -137,6 +139,62 @@ export function formatRange(q: MeasureQuantity): string {
   return `${formatUnits(Math.round(lo * 4) / 4)}–${formatUnits(
     Math.round(hi * 4) / 4,
   )} ${q.measure.label}`;
+}
+
+/**
+ * Мера в пересчёте на один день — то, как человек реально мыслит.
+ *
+ * На длинных периодах суммарные меры теряют смысл: «247 столовых ложек
+ * масла» и «159 бананов» невозможно удержать в голове. Для месячного
+ * плана показываем «8 ст. л. в день», а закупку — упаковками.
+ */
+export interface DailyPortion {
+  /** Текст суточной порции: «2 стакана в день» */
+  text: string;
+  /** Граммов в день */
+  gramsPerDay: number;
+  /** Стоит ли показывать посуточно (для длинных периодов) */
+  preferDaily: boolean;
+}
+
+export function dailyPortion(
+  product: Product,
+  totalGrams: number,
+  days: number,
+  eaters: number,
+): DailyPortion | null {
+  const personDays = Math.max(1, days * eaters);
+  const gramsPerDay = totalGrams / personDays;
+
+  // Редкие продукты честнее показывать частотой, а не «долей штуки в день».
+  // Сельдь раз в четыре дня — это «1 шт раз в 4 дня», а не «0.25 шт в день».
+  const base = product.measures[0];
+  if (base && base.kind === 'piece' && gramsPerDay < base.grams * 0.7) {
+    const everyNDays = Math.max(2, Math.round(base.grams / Math.max(1, gramsPerDay)));
+    return {
+      text: `1 ${base.label} раз в ${everyNDays} ${plural(everyNDays, 'день', 'дня', 'дней')}`,
+      gramsPerDay,
+      preferDaily: personDays >= 10,
+    };
+  }
+
+  const q = pickMeasure(product, gramsPerDay);
+  return {
+    text: q ? `${q.text} в день` : `${Math.round(gramsPerDay)} г в день`,
+    gramsPerDay,
+    // посуточно удобнее, когда суммарное количество единиц велико
+    preferDaily: personDays >= 10,
+  };
+}
+
+/** Склонение существительных — локальная копия, чтобы core не зависел от UI. */
+function plural(n: number, one: string, few: string, many: string): string {
+  const abs = Math.abs(n) % 100;
+  const last = abs % 10;
+  if (abs > 10 && abs < 20) return many;
+  if (last > 1 && last < 5) return few;
+  if (last === 1) return one;
+  return many;
 }
 
 /** Создание стандартной объёмной меры по плотности продукта. */

@@ -10,7 +10,7 @@ import {
   positions,
 } from '../core/format';
 import { CATEGORY_LABEL } from '../core/types';
-import { pickMeasure, formatRange } from '../core/measures';
+import { pickMeasure, formatRange, dailyPortion } from '../core/measures';
 import type { Store } from '../state/store';
 import type { BasketItem } from '../core/types';
 
@@ -72,9 +72,25 @@ function BudgetBar({
 }
 
 /** Карточка одной позиции корзины. */
-function ItemCard({ item, onOpen }: { item: BasketItem; onOpen: () => void }) {
+function ItemCard({
+  item,
+  onOpen,
+  days,
+  eaters,
+}: {
+  item: BasketItem;
+  onOpen: () => void;
+  days: number;
+  eaters: number;
+}) {
   const q = pickMeasure(item.product, item.grams);
-  const portionText = q ? formatRange(q) : mass(item.grams);
+  // На месяц «247 ст. ложек масла» бессмысленны — показываем суточную норму
+  const daily = dailyPortion(item.product, item.grams, days, eaters);
+  const portionText = daily?.preferDaily
+    ? daily.text
+    : q
+      ? formatRange(q)
+      : mass(item.grams);
 
   return (
     <button
@@ -112,15 +128,20 @@ function ItemSheet({
   onExclude,
   onPrice,
   overridePrice,
+  days,
+  eaters,
 }: {
   item: BasketItem;
   onClose: () => void;
   onExclude: () => void;
   onPrice: (v: number | null) => void;
   overridePrice?: number;
+  days: number;
+  eaters: number;
 }) {
   const [price, setPrice] = useState(String(Math.round(item.product.pricePerKg)));
   const q = pickMeasure(item.product, item.grams);
+  const daily = dailyPortion(item.product, item.grams, days, eaters);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
@@ -142,12 +163,16 @@ function ItemSheet({
         <div className="mt-5 grid grid-cols-2 gap-3">
           <div className="rounded-2xl bg-surface-50 p-3.5 dark:bg-surface-800">
             <div className="text-[11px] font-semibold uppercase text-surface-400">
-              Сколько взять
+              {daily?.preferDaily ? 'Порция в день' : 'Сколько взять'}
             </div>
             <div className="mt-1 text-lg font-bold text-brand-600 dark:text-brand-400">
-              {q ? q.text : mass(item.grams)}
+              {daily?.preferDaily ? daily.text.replace(' в день', '') : q ? q.text : mass(item.grams)}
             </div>
-            <div className="text-xs text-surface-400">{mass(item.grams)}</div>
+            <div className="text-xs text-surface-400">
+              {daily?.preferDaily
+                ? `всего ${mass(item.grams)} за период`
+                : mass(item.grams)}
+            </div>
           </div>
           <div className="rounded-2xl bg-surface-50 p-3.5 dark:bg-surface-800">
             <div className="text-[11px] font-semibold uppercase text-surface-400">
@@ -393,6 +418,8 @@ export function PlanScreen({ store }: { store: Store }) {
                     <ItemCard
                       key={item.product.id}
                       item={item}
+                      days={state.days}
+                      eaters={state.eaters.length}
                       onOpen={() => setOpenItem(item)}
                     />
                   ))}
@@ -412,6 +439,8 @@ export function PlanScreen({ store }: { store: Store }) {
       {openItem && (
         <ItemSheet
           item={openItem}
+          days={state.days}
+          eaters={state.eaters.length}
           overridePrice={state.priceOverrides[openItem.product.id]}
           onClose={() => setOpenItem(null)}
           onExclude={() => {
