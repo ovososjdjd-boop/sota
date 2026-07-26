@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Card, Ring, Note, Spinner, Button, cx } from '../ui/primitives';
+import { Card, Ring, Note, Spinner, Button } from '../ui/primitives';
+import { cx } from '../ui/cx';
 import {
   money,
   moneyPlain,
-  kcal as fmtKcal,
-  grams,
   mass,
-  deviation,
   deviationTone,
   days as fmtDays,
   positions,

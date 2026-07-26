@@ -4,12 +4,14 @@ import { Onboarding } from './screens/Onboarding';
 import { PlanScreen } from './screens/PlanScreen';
 import { ShoppingScreen } from './screens/ShoppingScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
-import { Icon, cx } from './ui/primitives';
+import type { ReactElement } from 'react';
+import { cx } from './ui/cx';
+import { Icon } from './ui/icons';
 
 type Tab = 'plan' | 'shopping' | 'settings';
 
 function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
-  const tabs: { id: Tab; label: string; icon: (p: { className?: string }) => JSX.Element }[] = [
+  const tabs: { id: Tab; label: string; icon: (p: { className?: string }) => ReactElement }[] = [
     { id: 'plan', label: 'Меню', icon: Icon.Chart },
     { id: 'shopping', label: 'Покупки', icon: Icon.Cart },
     { id: 'settings', label: 'Настройки', icon: Icon.Settings },

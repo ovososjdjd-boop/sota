@@ -1,4 +1,6 @@
-import { Card, Button, Segmented, Icon, cx } from '../ui/primitives';
+import { Card, Button, Segmented } from '../ui/primitives';
+import { cx } from '../ui/cx';
+import { Icon } from '../ui/icons';
 import { moneyPlain } from '../core/format';
 import {
   ACTIVITY_LABEL,
@@ -42,12 +44,10 @@ function Field({
 
 function EaterCard({
   eater,
-  index,
   store,
   canRemove,
 }: {
   eater: EaterProfile;
-  index: number;
   store: Store;
   canRemove: boolean;
 }) {
@@ -201,11 +201,10 @@ export function SettingsScreen({ store }: { store: Store }) {
           </button>
         </div>
         <div className="space-y-3">
-          {state.eaters.map((e, i) => (
+          {state.eaters.map((e) => (
             <EaterCard
               key={e.id}
               eater={e}
-              index={i}
               store={store}
               canRemove={state.eaters.length > 1}
             />

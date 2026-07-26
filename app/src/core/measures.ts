@@ -13,7 +13,7 @@
  *  4) не дробим неделимое (пол-яйца не бывает).
  */
 
-import type { HouseholdMeasure, MeasureKind, Product } from './types';
+import type { HouseholdMeasure, Product } from './types';
 import { MEASURE_RELIABILITY } from './types';
 
 /** Стандартные объёмные меры (мл). Зафиксированы, чтобы не было разночтений. */

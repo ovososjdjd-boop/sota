@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Card, Button, Note, cx, Icon } from '../ui/primitives';
+import { Button, Note } from '../ui/primitives';
+import { cx } from '../ui/cx';
+import { Icon } from '../ui/icons';
 import { money, moneyPlain, mass, positions } from '../core/format';
 import { CATEGORY_LABEL, type ProductCategory } from '../core/types';
 import { packsNeeded, grossFromNet } from '../core/measures';

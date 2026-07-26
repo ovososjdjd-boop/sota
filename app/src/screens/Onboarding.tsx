@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button, Segmented, Card } from '../ui/primitives';
-import { moneyPlain, people, days as fmtDays } from '../core/format';
+
+import { moneyPlain, people } from '../core/format';
 import type { Store } from '../state/store';
 import { makeEater } from '../state/store';
 
