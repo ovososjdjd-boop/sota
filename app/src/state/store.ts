@@ -7,6 +7,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { EaterProfile, PlanResult, Product } from '../core/types';
 import { PRODUCTS } from '../data/products';
 import { optimizeBasket } from '../core/optimizer';
+import { planMenu, type MenuResult } from '../core/menuPlanner';
+import { RECIPES } from '../data/recipes';
 
 const STORAGE_KEY = 'ration.state.v1';
 
@@ -71,6 +73,8 @@ export function useAppState() {
   const [state, setState] = useState<AppState>(load);
   const [plan, setPlan] = useState<PlanResult | null>(null);
   const [calculating, setCalculating] = useState(false);
+  const [menu, setMenu] = useState<MenuResult | null>(null);
+  const [calculatingMenu, setCalculatingMenu] = useState(false);
 
   useEffect(() => {
     save(state);
@@ -103,8 +107,26 @@ export function useAppState() {
     }
   }, [state.budget, state.days, state.eaters, products]);
 
+  /** Построение меню по дням (Этап 4). */
+  const recalculateMenu = useCallback(async () => {
+    setCalculatingMenu(true);
+    try {
+      const result = await planMenu(
+        { budget: state.budget, days: state.days, eaters: state.eaters },
+        RECIPES,
+        undefined,
+        new Set(state.excluded),
+      );
+      setMenu(result);
+    } finally {
+      setCalculatingMenu(false);
+    }
+  }, [state.budget, state.days, state.eaters, state.excluded]);
+
   const update = useCallback((patch: Partial<AppState>) => {
     setState((s) => ({ ...s, ...patch }));
+    // меню зависит от бюджета и состава семьи — сбрасываем кэш
+    setMenu(null);
   }, []);
 
   const setEater = useCallback((id: string, patch: Partial<EaterProfile>) => {
@@ -112,10 +134,12 @@ export function useAppState() {
       ...s,
       eaters: s.eaters.map((e) => (e.id === id ? { ...e, ...patch } : e)),
     }));
+    setMenu(null);
   }, []);
 
   const addEater = useCallback(() => {
     setState((s) => ({ ...s, eaters: [...s.eaters, makeEater({ name: 'Ещё один' })] }));
+    setMenu(null);
   }, []);
 
   const removeEater = useCallback((id: string) => {
@@ -141,6 +165,7 @@ export function useAppState() {
         ? s.excluded.filter((x) => x !== productId)
         : [...s.excluded, productId],
     }));
+    setMenu(null);
   }, []);
 
   const toggleTheme = useCallback(() => {
@@ -150,12 +175,16 @@ export function useAppState() {
   const reset = useCallback(() => {
     setState(DEFAULT_STATE);
     setPlan(null);
+    setMenu(null);
   }, []);
 
   return {
     state,
     plan,
     calculating,
+    menu,
+    calculatingMenu,
+    recalculateMenu,
     products,
     update,
     setEater,

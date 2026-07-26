@@ -106,6 +106,7 @@ function buildDishModel(
   integer: boolean,
   maxMinutesPerDay: number | undefined,
   days: number,
+  eatersCount: number,
 ): string {
   const lines: string[] = [];
   const objTerms: string[] = [];
@@ -259,6 +260,16 @@ function buildDishModel(
     dinner: ['main', 'porridge'],
   };
 
+  // Гарниры — дополнение, а не самостоятельная еда. Без потолка солвер
+  // заказывал 44 лишние порции отварного картофеля, недобирая завтраки.
+  const sideTerms = candidates
+    .map((c, i) => (c.stats.recipe.role === 'side' ? `x${i}` : null))
+    .filter(Boolean)
+    .join(' + ');
+  if (sideTerms) {
+    lines.push(` side_max: ${sideTerms} <= ${Math.ceil(personDays * 1.1)}`);
+  }
+
   for (const [slot, roles] of Object.entries(CORE_ROLES) as [
     'breakfast' | 'lunch' | 'dinner',
     DishRole[],
@@ -272,7 +283,12 @@ function buildDishModel(
       .filter(Boolean)
       .join(' + ');
     if (terms) {
-      lines.push(` core_${slot}: ${terms} >= ${personDays}`);
+      // Запас 1.35: часть блюд-основ уходит в другие приёмы, где они
+      // тоже уместны (макароны по-флотски годятся и на ужин).
+      // Вместе с потолком days/3 на блюдо это заставляет солвер
+      // набрать достаточно РАЗНЫХ основ, а не повторять одну.
+      const need = Math.ceil(personDays * 1.35);
+      lines.push(` core_${slot}: ${terms} >= ${need}`);
     }
   }
 
@@ -293,6 +309,21 @@ function buildDishModel(
     lines.push(` core_lunch_dinner: ${lunchDinnerTerms} >= ${personDays * 2}`);
   }
 
+  // Дополнения к завтраку. Каша сама по себе даёт ~390 ккал при норме 751 —
+  // завтрак недобирал почти половину. Нужны бутерброды, яйца, молочное.
+  const breakfastExtras = candidates
+    .map((c, i) => {
+      const r = c.stats.recipe;
+      const suits = r.slots.includes('breakfast');
+      const isExtra = r.role === 'bakery' || r.role === 'drink' || r.role === 'snack' || r.role === 'main';
+      return suits && isExtra ? `x${i}` : null;
+    })
+    .filter(Boolean)
+    .join(' + ');
+  if (breakfastExtras) {
+    lines.push(` breakfast_extras: ${breakfastExtras} >= ${Math.ceil(personDays * 0.8)}`);
+  }
+
   // Супы отдельно: обед без супа возможен, но не всю неделю подряд.
   const soupTerms = candidates
     .map((c, i) => (c.stats.recipe.role === 'soup' ? `x${i}` : null))
@@ -301,6 +332,18 @@ function buildDishModel(
   if (soupTerms) {
     lines.push(` soup_min: ${soupTerms} >= ${Math.ceil(personDays * 0.4)}`);
   }
+
+  // Разнообразие основ обеда. Правило неповторения (раз в 3 дня) означает,
+  // что одно блюдо покрывает максимум days/3 обедов. Чтобы каждый обед
+  // получил суп или основное, разных таких блюд нужно минимум days/3.
+  // Иначе получаем «обед из отварного картофеля» — реальный дефект.
+  const maxServingsPerDish = Math.max(1, Math.floor(days / MIN_REPEAT_GAP_DAYS));
+  candidates.forEach((c, i) => {
+    const r = c.stats.recipe;
+    if (r.slots.includes('lunch') && (r.role === 'soup' || r.role === 'main')) {
+      lines.push(` lunchcap_${i}: x${i} <= ${maxServingsPerDish * eatersCount}`);
+    }
+  });
 
   // время готовки
   if (maxMinutesPerDay && maxMinutesPerDay > 0) {
@@ -429,6 +472,7 @@ export async function planMenu(
     false,
     request.maxCookingMinutes,
     request.days,
+      request.eaters.length,
   );
   const lp = highs.solve(lpModel, { output_flag: false });
 
@@ -471,6 +515,7 @@ export async function planMenu(
     true,
     request.maxCookingMinutes,
     request.days,
+      request.eaters.length,
   );
   const sol = highs.solve(milpModel, {
     output_flag: false,
@@ -564,6 +609,7 @@ function findMinBudget(
       false,
       request.maxCookingMinutes,
       request.days,
+      request.eaters.length,
     );
     const s = highs.solve(model, { output_flag: false });
     if (s.Status === 'Optimal') {

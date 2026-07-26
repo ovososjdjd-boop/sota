@@ -89,10 +89,10 @@ const PASSES: Relaxation[] = [
   // умеренный: разрешаем плотнее набивать приёмы
   { repeatGap: MIN_REPEAT_GAP_DAYS, overfillFactor: 1.4, maxSameRole: 1, maxDishes: 4 },
   // мягкий: повтор через 2 дня — на коротком периоде иначе не хватает блюд
-  { repeatGap: 2, overfillFactor: 1.7, maxSameRole: 2, maxDishes: 5 },
+  { repeatGap: 2, overfillFactor: 1.8, maxSameRole: 1, maxDishes: 5 },
   // финальный: не оставляем ужин пустым. Повтор через день хуже,
   // чем день вообще без ужина — это вопрос практичности, а не эстетики.
-  { repeatGap: 1, overfillFactor: 2.0, maxSameRole: 2, maxDishes: 6 },
+  { repeatGap: 1, overfillFactor: 2.2, maxSameRole: 1, maxDishes: 5 },
 ];
 
 function zero(): Nutrients {
@@ -184,15 +184,18 @@ export function buildSchedule(
         }
 
         if (stage === 'core') {
-          // приоритет слота = насколько узок выбор блюд для него
-          const scarcity: Record<string, number> = { dinner: 0, lunch: 1, breakfast: 2, snack: 3 };
+          // Обед и ужин конкурируют за одни блюда. Раньше ужины шли
+          // первыми и забирали все основы — обеды оставались с гарнирами.
+          // Теперь идём по дням, чередуя обед и ужин: оба приёма
+          // получают основу в один день, прежде чем перейти к следующему.
+          const order: Record<string, number> = { lunch: 0, dinner: 1, breakfast: 2, snack: 3 };
           slots.sort((a, b) => {
-            const sa = scarcity[a.meal.slot] ?? 9;
-            const sb = scarcity[b.meal.slot] ?? 9;
-            if (sa !== sb) return sa - sb;
-            return a.day.index - b.day.index;
+            if (a.day.index !== b.day.index) return a.day.index - b.day.index;
+            return (order[a.meal.slot] ?? 9) - (order[b.meal.slot] ?? 9);
           });
         } else {
+          // Дополнения — по относительному дефициту: самый «голодный»
+          // приём получает еду первым.
           slots.sort(
             (a, b) =>
               b.deficit / Math.max(1, b.meal.targetKcal) -
@@ -236,8 +239,11 @@ export function buildSchedule(
           // с соблюдением правила неповторения.
           const daysLeft = Math.max(1, schedule.length - day.index);
           const servingsLeft = Math.max(1, Math.ceil(daysLeft / relax.repeatGap));
-          const evenShare = Math.max(1, Math.ceil(entry.portions / servingsLeft));
-          const serve = Math.min(entry.portions, byRoom, evenShare, eaters * 2);
+          const evenShare = Math.max(eaters, Math.ceil(entry.portions / servingsLeft));
+          // Верхняя граница — вместимость приёма по калориям. Число едоков
+          // не ограничивает: семья из 4 съедает 4 порции супа за раз,
+          // и это по-прежнему ОДНО блюдо в меню.
+          const serve = Math.max(1, Math.min(entry.portions, byRoom, evenShare));
           const cooked = !wasCookedRecently(schedule, pick.stats.recipe, day.index);
 
           meal.dishes.push({
@@ -298,8 +304,11 @@ function sweepRemainder(
   // разрешаем повтор через день. Это компромисс между «красивым меню»
   // и «продукты не должны пропасть».
   const stages = [
-    { minGap: 2, maxSameGroup: 2, maxDishes: 5, fillTo: 1.3 },
-    { minGap: 1, maxSameGroup: 2, maxDishes: 6, fillTo: 1.6 },
+    { minGap: 2, maxSameGroup: 1, maxDishes: 5, fillTo: 1.5, requireCore: true },
+    // Финальная стадия: СанПиН допускает отклонение по отдельному приёму,
+    // если среднее за период в норме. Пустой приём хуже, чем приём
+    // из одного гарнира, поэтому структуру здесь не требуем.
+    { minGap: 1, maxSameGroup: 1, maxDishes: 6, fillTo: 2.4, requireCore: false },
   ];
 
   for (const stage of stages) {
@@ -308,14 +317,25 @@ function sweepRemainder(
 
     while (progress && guard++ < 3000) {
       progress = false;
-      const hungry = [...schedule]
-        .filter((d) => d.nutrients.kcal < d.targetKcal * 1.1)
-        .sort(
-          (a, b) => a.nutrients.kcal / a.targetKcal - b.nutrients.kcal / b.targetKcal,
-        );
-
-      for (const day of hungry) {
+      // Идём по САМЫМ СЛАБЫМ ПРИЁМАМ, а не по дням: раньше уборщик
+      // прекращал работу, когда день в целом набрал норму, и отдельный
+      // приём мог остаться на 40% от целевой калорийности.
+      const weakMeals: { day: PlannedDay; meal: PlannedMeal; ratio: number }[] = [];
+      for (const day of schedule) {
         for (const meal of day.meals) {
+          const ratio = meal.nutrients.kcal / Math.max(1, meal.targetKcal);
+          // добираем приём, пока он не превысил лимит стадии И день
+          // не ушёл далеко за свою норму
+          const dayRatio = day.nutrients.kcal / Math.max(1, day.targetKcal);
+          if (ratio < stage.fillTo && dayRatio < 1.15) {
+            weakMeals.push({ day, meal, ratio });
+          }
+        }
+      }
+      weakMeals.sort((a, b) => a.ratio - b.ratio);
+
+      {
+        for (const { day, meal } of weakMeals) {
           if (meal.nutrients.kcal > meal.targetKcal * stage.fillTo) continue;
           if (meal.dishes.length >= stage.maxDishes) continue;
 
@@ -333,6 +353,16 @@ function sweepRemainder(
               (x) => (ROLE_GROUP[x.recipe.role] ?? x.recipe.role) === group,
             ).length;
             if (sameGroup >= stage.maxSameGroup) continue;
+
+            // Структура приёма: гарнир не делает обед обедом. Но если приём
+            // пуст, а основы кончились, дополнение лучше пустоты —
+            // поэтому правило действует только пока приём непустой.
+            const coreRoles = CORE_ROLES[meal.slot] ?? [];
+            if (stage.requireCore && coreRoles.length > 0 && meal.dishes.length > 0) {
+              const hasCore = meal.dishes.some((x) => coreRoles.includes(x.recipe.role));
+              if (!hasCore && !coreRoles.includes(recipe.role)) continue;
+            }
+
 
             const serve = Math.min(entry.portions, eaters);
             const cooked = !wasCookedRecently(schedule, recipe, day.index);
@@ -381,6 +411,8 @@ function wasCookedRecently(
  * кукурузной каши и ячневой каши одновременно.
  */
 const ROLE_GROUP: Record<string, string> = {
+  // «base» — углеводная основа тарелки. Две таких в одном приёме
+  // («каша + макароны») — ошибка меню, а не разнообразие.
   porridge: 'base',
   side: 'base',
   soup: 'soup',
@@ -442,6 +474,11 @@ function pickDishForMeal(
       (x) => (ROLE_GROUP[x.recipe.role] ?? x.recipe.role) === group,
     ).length;
     if (sameGroup >= relax.maxSameRole) continue;
+
+    // Завтрак и ужин компактнее обеда: каша/основное + дополнение.
+    if ((meal.slot === 'breakfast' || meal.slot === 'dinner') && meal.dishes.length >= 3) {
+      continue;
+    }
 
     // структура: дополнения не заменяют основу
     if (!coreOnly && coreRoles.length > 0) {

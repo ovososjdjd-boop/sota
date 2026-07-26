@@ -2,17 +2,19 @@ import { useState } from 'react';
 import { useAppState } from './state/store';
 import { Onboarding } from './screens/Onboarding';
 import { PlanScreen } from './screens/PlanScreen';
+import { MenuScreen } from './screens/MenuScreen';
 import { ShoppingScreen } from './screens/ShoppingScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import type { ReactElement } from 'react';
 import { cx } from './ui/cx';
 import { Icon } from './ui/icons';
 
-type Tab = 'plan' | 'shopping' | 'settings';
+type Tab = 'menu' | 'plan' | 'shopping' | 'settings';
 
 function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   const tabs: { id: Tab; label: string; icon: (p: { className?: string }) => ReactElement }[] = [
-    { id: 'plan', label: 'Меню', icon: Icon.Chart },
+    { id: 'menu', label: 'Меню', icon: Icon.Calendar },
+    { id: 'plan', label: 'Продукты', icon: Icon.Chart },
     { id: 'shopping', label: 'Покупки', icon: Icon.Cart },
     { id: 'settings', label: 'Настройки', icon: Icon.Settings },
   ];
@@ -43,7 +45,7 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
 
 export default function App() {
   const store = useAppState();
-  const [tab, setTab] = useState<Tab>('plan');
+  const [tab, setTab] = useState<Tab>('menu');
 
   if (!store.state.onboarded) {
     return (
@@ -56,6 +58,7 @@ export default function App() {
   return (
     <div className="flex min-h-full flex-col bg-surface-50 dark:bg-surface-950">
       <main className="flex-1">
+        {tab === 'menu' && <MenuScreen store={store} />}
         {tab === 'plan' && <PlanScreen store={store} />}
         {tab === 'shopping' && <ShoppingScreen store={store} />}
         {tab === 'settings' && <SettingsScreen store={store} />}

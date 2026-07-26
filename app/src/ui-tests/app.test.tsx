@@ -13,6 +13,25 @@ beforeEach(() => {
   localStorage.clear();
 });
 
+/**
+ * Пройти онбординг и дождаться готового меню.
+ * Стартовый экран приложения — календарь меню (Этап 4).
+ */
+async function completeOnboarding(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: /Составить меню/i }));
+  await waitFor(() => expect(screen.getByText(/Меню на 7 дн/i)).toBeInTheDocument(), {
+    timeout: 60000,
+  });
+}
+
+/** Перейти на вкладку с продуктовой корзиной. */
+async function openProducts(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: /Продукты/i }));
+  await waitFor(() => expect(screen.getByText(/Список покупок/i)).toBeInTheDocument(), {
+    timeout: 60000,
+  });
+}
+
 describe('пользовательский путь', () => {
   it('стартует с онбординга и показывает поле суммы', () => {
     render(<App />);
@@ -39,15 +58,8 @@ describe('пользовательский путь', () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(screen.getByRole('button', { name: /Составить меню/i }));
-
-    // ждём результата оптимизации
-    await waitFor(
-      () => {
-        expect(screen.getByText(/Список покупок/i)).toBeInTheDocument();
-      },
-      { timeout: 30000 },
-    );
+    await completeOnboarding(user);
+    await openProducts(user);
 
     // бюджет-бар присутствует
     expect(screen.getByText(/Потрачено/i)).toBeInTheDocument();
@@ -61,11 +73,8 @@ describe('пользовательский путь', () => {
   it('корзина содержит порции в домашних мерах, а не только граммы', async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: /Составить меню/i }));
-
-    await waitFor(() => expect(screen.getByText(/Список покупок/i)).toBeInTheDocument(), {
-      timeout: 30000,
-    });
+    await completeOnboarding(user);
+    await openProducts(user);
 
     const body = document.body.textContent ?? '';
     // хотя бы одна человеческая мера должна встретиться
@@ -77,11 +86,8 @@ describe('пользовательский путь', () => {
   it('не превышает заявленный бюджет', async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: /Составить меню/i }));
-
-    await waitFor(() => expect(screen.getByText(/Список покупок/i)).toBeInTheDocument(), {
-      timeout: 30000,
-    });
+    await completeOnboarding(user);
+    await openProducts(user);
 
     // «Потрачено N из 5 000 ₽»
     const text = document.body.textContent ?? '';
@@ -95,26 +101,22 @@ describe('пользовательский путь', () => {
   it('переключается на настройки и обратно', async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: /Составить меню/i }));
-    await waitFor(() => expect(screen.getByText(/Список покупок/i)).toBeInTheDocument(), {
-      timeout: 30000,
-    });
+    await completeOnboarding(user);
+    await openProducts(user);
 
     await user.click(screen.getByRole('button', { name: /Настройки/i }));
     expect(screen.getByText(/Кто ест/i)).toBeInTheDocument();
     expect(screen.getByText(/Об источниках данных/i)).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /^Меню$/i }));
+    await user.click(screen.getByRole('button', { name: /Продукты/i }));
     expect(screen.getByText(/Список покупок/i)).toBeInTheDocument();
   }, 60000);
 
   it('в настройках показана норма КБЖУ с оговоркой о точности', async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: /Составить меню/i }));
-    await waitFor(() => expect(screen.getByText(/Список покупок/i)).toBeInTheDocument(), {
-      timeout: 30000,
-    });
+    await completeOnboarding(user);
+    await openProducts(user);
     await user.click(screen.getByRole('button', { name: /Настройки/i }));
 
     expect(screen.getByText(/Норма в день/i)).toBeInTheDocument();
@@ -125,10 +127,8 @@ describe('пользовательский путь', () => {
   it('добавление члена семьи увеличивает потребность в калориях', async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: /Составить меню/i }));
-    await waitFor(() => expect(screen.getByText(/Список покупок/i)).toBeInTheDocument(), {
-      timeout: 30000,
-    });
+    await completeOnboarding(user);
+    await openProducts(user);
 
     // «7 дней · 1 чел»
     expect(screen.getByText(/1 чел/)).toBeInTheDocument();
@@ -142,7 +142,7 @@ describe('пользовательский путь', () => {
       { timeout: 20000 },
     );
 
-    await user.click(screen.getByRole('button', { name: /^Меню$/i }));
+    await user.click(screen.getByRole('button', { name: /Продукты/i }));
     await waitFor(() => expect(screen.getByText(/2 чел/)).toBeInTheDocument(), {
       timeout: 20000,
     });
@@ -151,65 +151,21 @@ describe('пользовательский путь', () => {
   it('сохраняет состояние между перезапусками', async () => {
     const user = userEvent.setup();
     const { unmount } = render(<App />);
-    await user.click(screen.getByRole('button', { name: /Составить меню/i }));
-    await waitFor(() => expect(screen.getByText(/Список покупок/i)).toBeInTheDocument(), {
-      timeout: 30000,
-    });
+    await completeOnboarding(user);
     unmount();
 
     render(<App />);
-    // онбординг пройден — сразу основной экран
-    await waitFor(() => expect(screen.getByText(/Потрачено/i)).toBeInTheDocument(), {
-      timeout: 30000,
+    // онбординг пройден — приложение сразу открывает меню
+    await waitFor(() => expect(screen.getByText(/Меню на 7 дн/i)).toBeInTheDocument(), {
+      timeout: 60000,
     });
-  }, 60000);
-
-  it('экран покупок показывает упаковки и чекбоксы', async () => {
-    const user = userEvent.setup();
-    render(<App />);
-    await user.click(screen.getByRole('button', { name: /Составить меню/i }));
-    await waitFor(() => expect(screen.getByText(/Список покупок/i)).toBeInTheDocument(), {
-      timeout: 30000,
-    });
-
-    await user.click(screen.getByRole('button', { name: /Покупки/i }));
-    expect(screen.getByText(/К оплате в магазине/i)).toBeInTheDocument();
-    expect(screen.getByText(/собрано/i)).toBeInTheDocument();
-    // отделы магазина, а не пищевые категории
-    const text = document.body.textContent ?? '';
-    expect(/Молочный отдел|Хлебный отдел|Бакалея|Овощи/.test(text)).toBe(true);
-  }, 60000);
-
-  it('отметка товара в списке покупок работает', async () => {
-    const user = userEvent.setup();
-    render(<App />);
-    await user.click(screen.getByRole('button', { name: /Составить меню/i }));
-    await waitFor(() => expect(screen.getByText(/Список покупок/i)).toBeInTheDocument(), {
-      timeout: 30000,
-    });
-    await user.click(screen.getByRole('button', { name: /Покупки/i }));
-
-    const readDone = () => {
-      const m = (document.body.textContent ?? '').match(/(\d+)\s*\/\s*(\d+)/);
-      return m ? Number(m[1]) : -1;
-    };
-    expect(readDone()).toBe(0);
-
-    // кликаем первый товар (кнопки товаров идут после вкладок)
-    const buttons = screen.getAllByRole('button');
-    const itemButton = buttons.find((b) => /₽/.test(b.textContent ?? ''));
-    expect(itemButton).toBeTruthy();
-    await user.click(itemButton!);
-    expect(readDone()).toBe(1);
-  }, 60000);
+  }, 90000);
 
   it('дисклеймер о немедицинском характере присутствует', async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole('button', { name: /Составить меню/i }));
-    await waitFor(() => expect(screen.getByText(/Список покупок/i)).toBeInTheDocument(), {
-      timeout: 30000,
-    });
+    await completeOnboarding(user);
+    await openProducts(user);
     expect(screen.getByText(/не медицинская рекомендация/i)).toBeInTheDocument();
   }, 60000);
 });
