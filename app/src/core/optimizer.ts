@@ -38,7 +38,23 @@ export async function getSolver(): Promise<HighsSolver> {
     solverPromise = (async () => {
       const mod = await import('highs');
       const loader = (mod.default ?? mod) as (opts?: unknown) => Promise<HighsSolver>;
-      return loader();
+      // В настоящем браузере WASM лежит рядом с приложением и грузится
+      // по HTTP. В Node (тесты, SSR) файловая система — путь резолвится сам.
+      // jsdom притворяется браузером, но fetch к localhost там не работает,
+      // поэтому проверяем именно наличие рабочего сетевого окружения.
+      const isRealBrowser =
+        typeof window !== 'undefined' &&
+        typeof document !== 'undefined' &&
+        !navigator.userAgent.includes('jsdom');
+
+      return loader(
+        isRealBrowser
+          ? {
+              locateFile: (file: string) =>
+                new URL(file, document.baseURI).toString(),
+            }
+          : undefined,
+      );
     })();
   }
   return solverPromise;

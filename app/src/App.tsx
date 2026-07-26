@@ -1,122 +1,60 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState } from 'react';
+import { useAppState } from './state/store';
+import { Onboarding } from './screens/Onboarding';
+import { PlanScreen } from './screens/PlanScreen';
+import { SettingsScreen } from './screens/SettingsScreen';
+import { Icon, cx } from './ui/primitives';
 
-function App() {
-  const [count, setCount] = useState(0)
+type Tab = 'plan' | 'settings';
+
+function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
+  const tabs: { id: Tab; label: string; icon: (p: { className?: string }) => JSX.Element }[] = [
+    { id: 'plan', label: 'Меню', icon: Icon.Cart },
+    { id: 'settings', label: 'Настройки', icon: Icon.Settings },
+  ];
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
+    <nav
+      className="sticky bottom-0 z-30 flex border-t border-surface-200/70 bg-white/90 backdrop-blur-xl dark:border-surface-800 dark:bg-surface-950/90"
+      style={{ paddingBottom: 'var(--safe-bottom)' }}
+    >
+      {tabs.map((t) => (
         <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
+          key={t.id}
+          onClick={() => onChange(t.id)}
+          className={cx(
+            'flex flex-1 flex-col items-center gap-1 py-3 transition-colors',
+            tab === t.id
+              ? 'text-brand-600 dark:text-brand-400'
+              : 'text-surface-400 dark:text-surface-600',
+          )}
         >
-          Count is {count}
+          <t.icon className="h-[22px] w-[22px]" />
+          <span className="text-[11px] font-semibold">{t.label}</span>
         </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      ))}
+    </nav>
+  );
 }
 
-export default App
+export default function App() {
+  const store = useAppState();
+  const [tab, setTab] = useState<Tab>('plan');
+
+  if (!store.state.onboarded) {
+    return (
+      <div className="min-h-full bg-surface-50 dark:bg-surface-950">
+        <Onboarding store={store} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-full flex-col bg-surface-50 dark:bg-surface-950">
+      <main className="flex-1">
+        {tab === 'plan' ? <PlanScreen store={store} /> : <SettingsScreen store={store} />}
+      </main>
+      <TabBar tab={tab} onChange={setTab} />
+    </div>
+  );
+}
