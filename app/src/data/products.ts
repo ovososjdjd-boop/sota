@@ -298,7 +298,7 @@ export const PRODUCTS: Product[] = [
     fiber: 1.4,
     wasteRatio: 0.25,
     yields: { boiled: 0.97, fried: 0.6, baked: 0.85 },
-    measures: [pieceMeasure(100, 'шт средняя')],
+    measures: [pieceMeasure(100, 'шт')],
     packSizes: [1000, 2500],
     shelfLifeDays: 60,
     tags: ['vegan', 'gluten-free'],
@@ -316,7 +316,7 @@ export const PRODUCTS: Product[] = [
     fiber: 2.4,
     wasteRatio: 0.2,
     yields: { boiled: 0.95, stewed: 0.85 },
-    measures: [pieceMeasure(85, 'шт средняя')],
+    measures: [pieceMeasure(85, 'шт')],
     packSizes: [1000],
     shelfLifeDays: 45,
     tags: ['vegan', 'gluten-free'],
@@ -325,7 +325,7 @@ export const PRODUCTS: Product[] = [
     fiber: 3.0,
     wasteRatio: 0.16,
     yields: { fried: 0.5, stewed: 0.7 },
-    measures: [pieceMeasure(75, 'шт средняя')],
+    measures: [pieceMeasure(75, 'шт')],
     packSizes: [1000],
     shelfLifeDays: 60,
     tags: ['vegan', 'gluten-free'],
@@ -334,7 +334,7 @@ export const PRODUCTS: Product[] = [
     fiber: 2.5,
     wasteRatio: 0.2,
     yields: { boiled: 0.95 },
-    measures: [pieceMeasure(150, 'шт средняя')],
+    measures: [pieceMeasure(150, 'шт')],
     packSizes: [1000],
     shelfLifeDays: 60,
     tags: ['vegan', 'gluten-free'],
@@ -342,7 +342,7 @@ export const PRODUCTS: Product[] = [
   p('tomato', 'Помидоры', 'vegetable', 20, 1.1, 0.2, 3.8, 398, {
     fiber: 1.2,
     wasteRatio: 0.05,
-    measures: [pieceMeasure(120, 'шт средний')],
+    measures: [pieceMeasure(120, 'шт')],
     packSizes: [500, 1000],
     shelfLifeDays: 7,
     perishable: true,
@@ -351,7 +351,7 @@ export const PRODUCTS: Product[] = [
   p('cucumber', 'Огурцы', 'vegetable', 14, 0.8, 0.1, 2.5, 248, {
     fiber: 1.0,
     wasteRatio: 0.05,
-    measures: [pieceMeasure(100, 'шт средний')],
+    measures: [pieceMeasure(100, 'шт')],
     packSizes: [500, 1000],
     shelfLifeDays: 7,
     perishable: true,
@@ -362,7 +362,7 @@ export const PRODUCTS: Product[] = [
   p('apple', 'Яблоки', 'fruit', 47, 0.4, 0.4, 9.8, 210, {
     fiber: 1.8,
     wasteRatio: 0.1,
-    measures: [pieceMeasure(180, 'шт средний')],
+    measures: [pieceMeasure(180, 'шт')],
     packSizes: [1000],
     shelfLifeDays: 20,
     tags: ['vegan', 'gluten-free'],
@@ -475,7 +475,7 @@ export const PRODUCTS: Product[] = [
   p('zucchini', 'Кабачок', 'vegetable', 24, 0.6, 0.3, 4.6, 120, {
     fiber: 1.0, wasteRatio: 0.2,
     yields: { fried: 0.6, stewed: 0.75 },
-    measures: [pieceMeasure(250, 'шт средний')],
+    measures: [pieceMeasure(250, 'шт')],
     packSizes: [1000], shelfLifeDays: 14, perishable: true, tags: ['vegan', 'gluten-free'],
   }),
   p('cabbage_sauer', 'Капуста квашеная', 'vegetable', 19, 1.8, 0.1, 3.2, 130, {
@@ -490,7 +490,7 @@ export const PRODUCTS: Product[] = [
   }),
   p('pear', 'Груши', 'fruit', 42, 0.4, 0.3, 10.9, 220, {
     fiber: 2.8, wasteRatio: 0.1,
-    measures: [pieceMeasure(170, 'шт средняя')],
+    measures: [pieceMeasure(170, 'шт')],
     packSizes: [1000], shelfLifeDays: 14, tags: ['vegan', 'gluten-free'],
   }),
   p('orange', 'Апельсины', 'fruit', 43, 0.9, 0.2, 8.1, 185, {

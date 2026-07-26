@@ -41,6 +41,46 @@ export interface MeasureQuantity {
   text: string;
 }
 
+/**
+ * Склонение названий мер по числу: «6 бутылка» → «6 бутылок».
+ * Метки хранятся в единственном числе, здесь приводим к нужной форме.
+ */
+const MEASURE_PLURALS: Record<string, [string, string, string]> = {
+  'шт': ['шт', 'шт', 'шт'],
+  'ломоть': ['ломоть', 'ломтя', 'ломтей'],
+  'ломтик': ['ломтик', 'ломтика', 'ломтиков'],
+  'стакан': ['стакан', 'стакана', 'стаканов'],
+  'бутылка': ['бутылка', 'бутылки', 'бутылок'],
+  'пачка': ['пачка', 'пачки', 'пачек'],
+  'пакет': ['пакет', 'пакета', 'пакетов'],
+  'банка': ['банка', 'банки', 'банок'],
+  'баночка': ['баночка', 'баночки', 'баночек'],
+  'упак.': ['упак.', 'упак.', 'упак.'],
+  'горсть': ['горсть', 'горсти', 'горстей'],
+  'кусок': ['кусок', 'куска', 'кусков'],
+  'котлета': ['котлета', 'котлеты', 'котлет'],
+  'тушка': ['тушка', 'тушки', 'тушек'],
+  'филе': ['филе', 'филе', 'филе'],
+  'порция': ['порция', 'порции', 'порций'],
+  'окорочок': ['окорочок', 'окорочка', 'окорочков'],
+  'десяток': ['десяток', 'десятка', 'десятков'],
+};
+
+/** Приводит метку меры к форме, согласованной с числом. */
+export function pluralizeMeasureLabel(label: string, n: number): string {
+  // метка может быть составной: «стакан (200 мл)», «пачка 200 г»
+  const match = label.match(/^([А-Яа-яЁё.]+)(.*)$/);
+  if (!match) return label;
+  const [, head, tail] = match;
+  const forms = MEASURE_PLURALS[head];
+  if (!forms) return label;
+  const abs = Math.abs(Math.round(n)) % 100;
+  const last = abs % 10;
+  const form =
+    abs > 10 && abs < 20 ? forms[2] : last > 1 && last < 5 ? forms[1] : last === 1 ? forms[0] : forms[2];
+  return form + tail;
+}
+
 /** Красивая запись дробных количеств. */
 export function formatUnits(units: number): string {
   const whole = Math.floor(units);
@@ -116,7 +156,7 @@ export function pickMeasure(
           units,
           grams,
           relativeError,
-          text: `${formatUnits(units)} ${measure.label}`,
+          text: `${formatUnits(units)} ${pluralizeMeasureLabel(measure.label, units)}`,
         };
       }
     }
@@ -138,7 +178,7 @@ export function formatRange(q: MeasureQuantity): string {
   if (Math.abs(hi - lo) < 0.3) return q.text;
   return `${formatUnits(Math.round(lo * 4) / 4)}–${formatUnits(
     Math.round(hi * 4) / 4,
-  )} ${q.measure.label}`;
+  )} ${pluralizeMeasureLabel(q.measure.label, hi)}`;
 }
 
 /**
@@ -172,7 +212,7 @@ export function dailyPortion(
   if (base && base.kind === 'piece' && gramsPerDay < base.grams * 0.7) {
     const everyNDays = Math.max(2, Math.round(base.grams / Math.max(1, gramsPerDay)));
     return {
-      text: `1 ${base.label} раз в ${everyNDays} ${plural(everyNDays, 'день', 'дня', 'дней')}`,
+      text: `1 ${pluralizeMeasureLabel(base.label, 1)} раз в ${everyNDays} ${plural(everyNDays, 'день', 'дня', 'дней')}`,
       gramsPerDay,
       preferDaily: personDays >= 10,
     };

@@ -6,7 +6,13 @@ import {
   periodTargets,
   atwaterDiscrepancy,
 } from '../nutrition';
-import { pickMeasure, packsNeeded, grossFromNet, formatUnits } from '../measures';
+import {
+  pickMeasure,
+  packsNeeded,
+  grossFromNet,
+  formatUnits,
+  pluralizeMeasureLabel,
+} from '../measures';
 import { optimizeBasket } from '../optimizer';
 import { PRODUCTS, PRODUCT_BY_ID } from '../../data/products';
 import type { EaterProfile } from '../types';
@@ -89,6 +95,24 @@ describe('measures: домашние меры', () => {
     expect(formatUnits(0.5)).toBe('½');
     expect(formatUnits(1.5)).toBe('1½');
     expect(formatUnits(2.25)).toBe('2¼');
+  });
+
+  it('названия мер склоняются по числу', () => {
+    // раньше в интерфейсе выводилось «6 бутылка 450 г»
+    expect(pluralizeMeasureLabel('бутылка 450 г', 6)).toBe('бутылок 450 г');
+    expect(pluralizeMeasureLabel('стакан (200 мл)', 2)).toBe('стакана (200 мл)');
+    expect(pluralizeMeasureLabel('пакет 0.9 л', 3)).toBe('пакета 0.9 л');
+    expect(pluralizeMeasureLabel('ломоть', 5)).toBe('ломтей');
+    expect(pluralizeMeasureLabel('пачка 200 г', 1)).toBe('пачка 200 г');
+    expect(pluralizeMeasureLabel('кусок ≈150 г', 4)).toBe('куска ≈150 г');
+    // 11-14 — особый случай русского языка
+    expect(pluralizeMeasureLabel('стакан', 11)).toBe('стаканов');
+  });
+
+  it('текст меры в плане согласован по числу', () => {
+    const milk = PRODUCT_BY_ID['milk'];
+    const q = pickMeasure(milk, 412); // ~2 стакана
+    expect(q!.text).toMatch(/стакана/);
   });
 
   it('для яиц подбирается штучная мера, а не граммы', () => {
