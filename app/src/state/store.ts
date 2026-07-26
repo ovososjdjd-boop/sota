@@ -22,6 +22,8 @@ export interface AppState {
   priceOverrides: Record<string, number>;
   /** Продукты, исключённые глобально */
   excluded: string[];
+  /** Что уже есть дома: productId → граммы. Вычитается из списка покупок */
+  pantry: Record<string, number>;
   onboarded: boolean;
   theme: 'light' | 'dark';
 }
@@ -48,6 +50,7 @@ const DEFAULT_STATE: AppState = {
   eaters: [makeEater({ name: 'Я' })],
   priceOverrides: {},
   excluded: [],
+  pantry: {},
   onboarded: false,
   theme: 'light',
 };
@@ -187,6 +190,16 @@ export function useAppState() {
     });
   }, []);
 
+  /** Указать, сколько продукта уже есть дома. */
+  const setPantry = useCallback((productId: string, grams: number | null) => {
+    setState((s) => {
+      const next = { ...s.pantry };
+      if (grams == null || grams <= 0) delete next[productId];
+      else next[productId] = grams;
+      return { ...s, pantry: next };
+    });
+  }, []);
+
   const toggleExcluded = useCallback((productId: string) => {
     setState((s) => ({
       ...s,
@@ -221,6 +234,7 @@ export function useAppState() {
     addEater,
     removeEater,
     setPrice,
+    setPantry,
     toggleExcluded,
     toggleTheme,
     recalculate,

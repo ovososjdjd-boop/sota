@@ -67,21 +67,29 @@ interface Line {
  * запланированных блюд. Так купленное ровно соответствует тому,
  * что будет приготовлено — иначе список и меню расходятся.
  */
-function buildLinesFromMenu(products: Record<string, number>): Line[] {
+function buildLinesFromMenu(
+  products: Record<string, number>,
+  pantry: Record<string, number> = {},
+): Line[] {
   const lines: Line[] = [];
   for (const [productId, netGrams] of Object.entries(products)) {
     const product: Product | undefined = PRODUCT_BY_ID[productId];
     if (!product || netGrams <= 0) continue;
 
-    const gross = grossFromNet(product, netGrams);
+    // вычитаем то, что уже есть дома — незачем покупать дважды
+    const athome = pantry[productId] ?? 0;
+    const needed = Math.max(0, netGrams - athome);
+    if (needed <= 0) continue;
+
+    const gross = grossFromNet(product, needed);
     const packs = packsNeeded(product, gross);
     const item: BasketItem = {
       product,
       units: 1,
       measure: product.measures[0] ?? { kind: 'gram', grams: 100, label: 'г' },
-      grams: netGrams,
+      grams: needed,
       cost: (gross / 1000) * product.pricePerKg,
-      nutrients: nutrientsForGrams(product.per100g, netGrams),
+      nutrients: nutrientsForGrams(product.per100g, needed),
       packsToBuy: packs.packs,
       leftoverGrams: packs.leftover,
     };
@@ -149,10 +157,10 @@ export function ShoppingScreen({ store }: { store: Store }) {
   // которые человек будет готовить. Продуктовая корзина — запасной вариант.
   const lines = useMemo(() => {
     if (menu?.status === 'optimal' && Object.keys(menu.products).length > 0) {
-      return buildLinesFromMenu(menu.products);
+      return buildLinesFromMenu(menu.products, state.pantry);
     }
     return plan ? buildLines(plan.items) : [];
-  }, [menu, plan]);
+  }, [menu, plan, state.pantry]);
 
   const grouped = useMemo(() => {
     const map = new Map<ProductCategory, Line[]>();
@@ -247,8 +255,8 @@ export function ShoppingScreen({ store }: { store: Store }) {
               {items.map((l) => {
                 const isChecked = checked.has(l.item.product.id);
                 return (
+                  <div key={l.item.product.id}>
                   <button
-                    key={l.item.product.id}
                     onClick={() => toggle(l.item.product.id)}
                     className={cx(
                       'flex w-full items-center gap-3 rounded-2xl px-4 py-3.5 text-left shadow-card transition-all duration-200 active:scale-[0.99]',
@@ -309,6 +317,15 @@ export function ShoppingScreen({ store }: { store: Store }) {
                       {moneyPlain(l.cost)} ₽
                     </div>
                   </button>
+                  <button
+                    onClick={() =>
+                      store.setPantry(l.item.product.id, l.item.grams)
+                    }
+                    className="-mt-1 mb-2 ml-9 text-[11px] font-medium text-surface-400 underline decoration-dotted"
+                  >
+                    уже есть дома
+                  </button>
+                  </div>
                 );
               })}
             </div>

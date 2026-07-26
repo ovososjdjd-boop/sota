@@ -234,6 +234,37 @@ export function SettingsScreen({ store }: { store: Store }) {
         </Card>
       )}
 
+      {Object.keys(state.pantry).length > 0 && (
+        <Card className="p-5">
+          <h2 className="mb-1 text-base font-bold text-surface-900 dark:text-white">
+            Уже есть дома
+          </h2>
+          <p className="mb-3 text-[12px] leading-snug text-surface-400">
+            Эти продукты вычитаются из списка покупок
+          </p>
+          <div className="space-y-2">
+            {Object.entries(state.pantry).map(([id, grams]) => (
+              <div key={id} className="flex items-center justify-between text-sm">
+                <span className="text-surface-600 dark:text-surface-300">
+                  {PRODUCT_BY_ID[id]?.name ?? id}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="tnum font-semibold text-surface-900 dark:text-white">
+                    {grams >= 1000 ? `${(grams / 1000).toFixed(1)} кг` : `${Math.round(grams)} г`}
+                  </span>
+                  <button
+                    onClick={() => store.setPantry(id, null)}
+                    className="text-xs text-surface-400"
+                  >
+                    убрать
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {Object.keys(state.priceOverrides).length > 0 && (
         <Card className="p-5">
           <h2 className="mb-3 text-base font-bold text-surface-900 dark:text-white">
