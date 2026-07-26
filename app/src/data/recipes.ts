@@ -9,6 +9,7 @@
  */
 
 import type { Recipe } from '../core/recipes';
+import { RECIPE_STEPS } from './steps';
 
 export const RECIPES: Recipe[] = [
   // ───────────────────────── Каши и завтраки ─────────────────────────
@@ -1505,6 +1506,13 @@ export const RECIPES: Recipe[] = [
   },
 ];
 
+
+// Шаги приготовления хранятся отдельно (data/steps.ts) и подмешиваются
+// сюда: так список рецептов остаётся читаемым, а тексты редактируются
+// в одном месте.
+for (const recipe of RECIPES) {
+  recipe.steps = RECIPE_STEPS[recipe.id];
+}
 
 export const RECIPE_BY_ID: Record<string, Recipe> = Object.fromEntries(
   RECIPES.map((r) => [r.id, r]),

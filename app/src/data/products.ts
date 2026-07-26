@@ -97,7 +97,7 @@ export const PRODUCTS: Product[] = [
   p('pasta', 'Макароны из пшеницы в/с', 'grain', 344, 10.7, 1.3, 71.5, 168, {
     fiber: 3.7,
     yields: { boiled: 2.5 },
-    measures: [packMeasure(100, 'горсть ≈100 г')],
+    measures: [packMeasure(100, 'горсть')],
     packSizes: [400, 450, 900],
     shelfLifeDays: 540,
     tags: ['vegan'],
@@ -171,7 +171,7 @@ export const PRODUCTS: Product[] = [
   }),
   p('chicken_fillet', 'Филе куриное', 'meat', 113, 23.6, 1.9, 0.4, 420, {
     yields: { boiled: 0.63, fried: 0.7, baked: 0.72 },
-    measures: [pieceMeasure(180, 'филе ≈180 г')],
+    measures: [pieceMeasure(180, 'филе')],
     packSizes: [500, 700, 1000],
     shelfLifeDays: 4,
     perishable: true,
@@ -187,7 +187,7 @@ export const PRODUCTS: Product[] = [
   p('pork', 'Свинина', 'meat', 259, 16.0, 21.6, 0.0, 435, {
     wasteRatio: 0.1,
     yields: { boiled: 0.6, fried: 0.63, stewed: 0.65 },
-    measures: [pieceMeasure(150, 'кусок ≈150 г')],
+    measures: [pieceMeasure(150, 'кусок')],
     packSizes: [1000],
     shelfLifeDays: 4,
     perishable: true,
@@ -195,21 +195,21 @@ export const PRODUCTS: Product[] = [
   p('beef', 'Говядина', 'meat', 187, 18.9, 12.4, 0.0, 760, {
     wasteRatio: 0.12,
     yields: { boiled: 0.58, fried: 0.62, stewed: 0.62 },
-    measures: [pieceMeasure(150, 'кусок ≈150 г')],
+    measures: [pieceMeasure(150, 'кусок')],
     packSizes: [1000],
     shelfLifeDays: 4,
     perishable: true,
   }),
   p('mince', 'Фарш мясной', 'meat', 218, 17.0, 16.5, 0.0, 450, {
     yields: { fried: 0.7, stewed: 0.72 },
-    measures: [pieceMeasure(100, 'котлета ≈100 г'), packMeasure(400, 'пачка 400 г')],
+    measures: [pieceMeasure(100, 'котлета'), packMeasure(400, 'пачка 400 г')],
     packSizes: [400, 500, 1000],
     shelfLifeDays: 2,
     perishable: true,
   }),
   p('liver_chicken', 'Печень куриная', 'meat', 137, 20.4, 5.9, 0.7, 280, {
     yields: { boiled: 0.68, fried: 0.72 },
-    measures: [pieceMeasure(120, 'порция ≈120 г')],
+    measures: [pieceMeasure(120, 'порция')],
     packSizes: [500, 1000],
     shelfLifeDays: 3,
     perishable: true,
@@ -226,7 +226,7 @@ export const PRODUCTS: Product[] = [
   p('fish_frozen', 'Рыба мороженая (минтай)', 'fish', 72, 15.9, 0.9, 0.0, 330, {
     wasteRatio: 0.3,
     yields: { boiled: 0.8, fried: 0.79, baked: 0.8 },
-    measures: [pieceMeasure(150, 'филе ≈150 г')],
+    measures: [pieceMeasure(150, 'филе')],
     packSizes: [800, 1000],
     shelfLifeDays: 90,
   }),
@@ -275,7 +275,7 @@ export const PRODUCTS: Product[] = [
     tags: ['vegetarian'],
   }),
   p('butter', 'Масло сливочное 72.5%', 'fat', 661, 0.8, 72.5, 1.3, 1150, {
-    measures: [volumeMeasure('tsp', 0.9), volumeMeasure('tbsp', 0.9)],
+    measures: [volumeMeasure('tbsp', 0.9), volumeMeasure('tsp', 0.9)],
     packSizes: [180, 200],
     shelfLifeDays: 30,
     perishable: true,
@@ -380,6 +380,7 @@ export const PRODUCTS: Product[] = [
   // ───────────────── Масла и прочее ─────────────────
   p('sunflower_oil', 'Масло подсолнечное', 'fat', 899, 0.0, 99.9, 0.0, 169, {
     measures: [volumeMeasure('tbsp', 0.92), volumeMeasure('tsp', 0.92)],
+    // столовая ложка первой: «2 ст. л.» понятнее, чем «6 ч. л.»
     packSizes: [900, 1000],
     shelfLifeDays: 180,
     tags: ['vegan', 'gluten-free'],
@@ -422,7 +423,7 @@ export const PRODUCTS: Product[] = [
   p('vermicelli', 'Вермишель', 'grain', 344, 10.7, 1.3, 71.5, 164, {
     fiber: 3.7,
     yields: { boiled: 2.5 },
-    measures: [packMeasure(100, 'горсть ≈100 г')],
+    measures: [packMeasure(100, 'горсть')],
     packSizes: [400, 450], tags: ['vegan'],
   }),
   p('chickpeas', 'Нут', 'legume', 309, 20.1, 4.3, 46.2, 190, {
@@ -433,7 +434,7 @@ export const PRODUCTS: Product[] = [
   }),
   p('turkey', 'Индейка (филе)', 'meat', 138, 19.2, 7.0, 0.0, 480, {
     yields: { boiled: 0.62, fried: 0.7, baked: 0.72 },
-    measures: [pieceMeasure(150, 'кусок ≈150 г')],
+    measures: [pieceMeasure(150, 'кусок')],
     packSizes: [500, 1000], shelfLifeDays: 4, perishable: true,
   }),
   p('chicken_wings', 'Крылья куриные', 'meat', 186, 19.2, 12.2, 0.0, 230, {
@@ -445,13 +446,13 @@ export const PRODUCTS: Product[] = [
   p('herring_frozen', 'Скумбрия мороженая', 'fish', 191, 18.0, 13.2, 0.0, 320, {
     wasteRatio: 0.35,
     yields: { baked: 0.78, fried: 0.77 },
-    measures: [pieceMeasure(300, 'тушка ≈300 г')],
+    measures: [pieceMeasure(300, 'тушка')],
     packSizes: [1000], shelfLifeDays: 90,
   }),
   p('hake', 'Хек мороженый', 'fish', 86, 16.6, 2.2, 0.0, 350, {
     wasteRatio: 0.3,
     yields: { boiled: 0.8, fried: 0.79 },
-    measures: [pieceMeasure(150, 'филе ≈150 г')],
+    measures: [pieceMeasure(150, 'филе')],
     packSizes: [800, 1000], shelfLifeDays: 90,
   }),
   p('ryazhenka', 'Ряженка', 'dairy', 54, 2.9, 2.5, 4.2, 130, {
@@ -562,7 +563,7 @@ export const PRODUCTS: Product[] = [
   }),
   p('beef_stew_meat', 'Говядина для тушения', 'meat', 187, 18.6, 12.6, 0.0, 690, {
     wasteRatio: 0.05, yields: { stewed: 0.62, boiled: 0.58 },
-    measures: [pieceMeasure(150, 'кусок ≈150 г')],
+    measures: [pieceMeasure(150, 'кусок')],
     packSizes: [1000], shelfLifeDays: 4, perishable: true,
   }),
   p('pork_ribs', 'Свиные рёбра', 'meat', 278, 15.5, 24.0, 0.0, 390, {
@@ -571,7 +572,7 @@ export const PRODUCTS: Product[] = [
   }),
   p('liver_beef', 'Печень говяжья', 'meat', 127, 17.9, 3.7, 5.3, 340, {
     yields: { fried: 0.72, stewed: 0.7 },
-    measures: [pieceMeasure(120, 'порция ≈120 г')],
+    measures: [pieceMeasure(120, 'порция')],
     packSizes: [500, 1000], shelfLifeDays: 3, perishable: true,
   }),
   p('boiled_sausage', 'Колбаса варёная', 'meat', 257, 12.2, 22.8, 1.5, 528, {
@@ -586,7 +587,7 @@ export const PRODUCTS: Product[] = [
   // ───────────────── Рыба ─────────────────
   p('pollock_fillet', 'Филе минтая', 'fish', 79, 17.6, 1.0, 0.0, 420, {
     yields: { boiled: 0.8, fried: 0.79, baked: 0.8 },
-    measures: [pieceMeasure(150, 'филе ≈150 г')],
+    measures: [pieceMeasure(150, 'филе')],
     packSizes: [500, 1000], shelfLifeDays: 90, tags: ['gluten-free'],
   }),
   p('salmon_trout', 'Форель', 'fish', 141, 20.5, 6.3, 0.0, 1150, {

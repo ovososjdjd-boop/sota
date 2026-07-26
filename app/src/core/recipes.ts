@@ -10,7 +10,7 @@
 
 import type { Nutrients, Product, ProductCategory, CookingMethod } from './types';
 import { PRODUCT_BY_ID } from '../data/products';
-import { grossFromNet } from './measures';
+import { grossFromNet, pickMeasure } from './measures';
 
 /** Приём пищи, для которого уместно блюдо. */
 export type MealSlot = 'breakfast' | 'lunch' | 'dinner' | 'snack';
@@ -82,6 +82,11 @@ export interface Recipe {
   batchPortions: number;
   /** Сколько дней блюдо хранится готовым */
   keepsDays: number;
+  /**
+   * Шаги приготовления. Без них приложением нельзя пользоваться:
+   * человек видит «Свинина тушёная, 622 ккал» и не знает, что делать.
+   */
+  steps?: string[];
   tags: string[];
 }
 
@@ -201,4 +206,46 @@ export function matchesDietTags(
 /** Содержит ли блюдо исключённые продукты. */
 export function hasExcluded(recipe: Recipe, excluded: Set<string>): boolean {
   return recipe.ingredients.some((i) => excluded.has(i.productId));
+}
+
+/**
+ * Раскладка рецепта на конкретное число порций — то, что человек
+ * реально видит перед готовкой: какой продукт и сколько взять.
+ */
+export interface RecipePortion {
+  productId: string;
+  name: string;
+  /** Масса нетто на все порции, г */
+  grams: number;
+  /** Человекочитаемая мера: «2 стакана», «3 шт» */
+  measure: string;
+  /** Способ обработки, если задан */
+  method?: CookingMethod;
+}
+
+/**
+ * Состав блюда на N порций в домашних мерах.
+ * Именно это выводится в карточке рецепта.
+ */
+export function recipePortions(
+  recipe: Recipe,
+  portions: number,
+  products: Record<string, Product> = PRODUCT_BY_ID,
+): RecipePortion[] {
+  const out: RecipePortion[] = [];
+  for (const ing of recipe.ingredients) {
+    const product = products[ing.productId];
+    if (!product) continue;
+    const grams = ing.grams * portions;
+    const q = pickMeasure(product, grams);
+    out.push({
+      productId: ing.productId,
+      name: product.name,
+      grams,
+      measure: q ? q.text : `${Math.round(grams)} г`,
+      method: ing.method,
+    });
+  }
+  // сначала основные ингредиенты, приправы в конце
+  return out.sort((a, b) => b.grams - a.grams);
 }

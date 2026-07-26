@@ -58,6 +58,9 @@ const MEASURE_PLURALS: Record<string, [string, string, string]> = {
   'упак.': ['упак.', 'упак.', 'упак.'],
   'горсть': ['горсть', 'горсти', 'горстей'],
   'кусок': ['кусок', 'куска', 'кусков'],
+  'зубчик': ['зубчик', 'зубчика', 'зубчиков'],
+  'долька': ['долька', 'дольки', 'долек'],
+  'стейк': ['стейк', 'стейка', 'стейков'],
   'котлета': ['котлета', 'котлеты', 'котлет'],
   'тушка': ['тушка', 'тушки', 'тушек'],
   'филе': ['филе', 'филе', 'филе'],
@@ -139,14 +142,23 @@ export function pickMeasure(
       // Штраф за громоздкость. Раньше порог был 12 единиц, и «13 ложек риса»
       // проходило как норма, хотя это ровно 1 стакан. Человеку удобно
       // отмерять до ~6 одинаковых единиц, дальше растёт и время, и ошибка.
-      const bulkPenalty = units > 6 ? (units - 6) * 0.06 : 0;
+      // Мелкие меры быстро становятся неудобными: «6 ч. л.» — это 2 ст. л.
+      const softLimit = measure.kind === 'tsp' ? 3 : 6;
+      const bulkPenalty = units > softLimit ? (units - softLimit) * 0.09 : 0;
+
+      // Штучные меры с «≈» врут, если масса не кратна штуке: «1 кусок ≈150 г»
+      // при реальных 200 г вводит в заблуждение. Для таких случаев
+      // резко штрафуем неточность.
+      const approxPiece = measure.kind === 'piece' && /≈/.test(measure.label);
+      const approxPenalty = approxPiece ? relativeError * 3 : 0;
       // бонус за круглые числа
       const roundBonus = Number.isInteger(units) ? 0.05 : 0;
 
       const score =
         MEASURE_RELIABILITY[measure.kind] * 1.0 -
         relativeError * 2.0 -
-        bulkPenalty +
+        bulkPenalty -
+        approxPenalty +
         roundBonus;
 
       if (score > bestScore) {

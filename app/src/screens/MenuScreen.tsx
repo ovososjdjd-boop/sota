@@ -4,6 +4,7 @@ import { cx } from '../ui/cx';
 import { moneyPlain } from '../core/format';
 import { MEAL_LABEL, ROLE_LABEL, type MealSlot } from '../core/recipes';
 import { findAlternatives, type SwapCandidate } from '../core/swap';
+import { RecipeSheet } from './RecipeSheet';
 import { RECIPES } from '../data/recipes';
 import type { PlannedDay, PlannedDish } from '../core/menu';
 import type { Store } from '../state/store';
@@ -64,77 +65,6 @@ function DishRow({
         {Math.round(kcal)}
       </div>
     </button>
-  );
-}
-
-/** Шторка выбора замены блюда. */
-function SwapSheet({
-  dish,
-  alternatives,
-  onPick,
-  onClose,
-}: {
-  dish: PlannedDish;
-  alternatives: SwapCandidate[];
-  onPick: (c: SwapCandidate) => void;
-  onClose: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="relative max-h-[80vh] w-full animate-rise overflow-y-auto rounded-t-3xl bg-white p-5 shadow-lift dark:bg-surface-900"
-        style={{ paddingBottom: 'calc(2rem + var(--safe-bottom))' }}
-      >
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-surface-300 dark:bg-surface-700" />
-        <h3 className="text-lg font-bold text-surface-900 dark:text-white">
-          Заменить блюдо
-        </h3>
-        <p className="mt-0.5 text-sm text-surface-400">
-          Сейчас: {dish.recipe.name} · {Math.round(dish.stats.nutrients.kcal)} ккал
-        </p>
-
-        {alternatives.length === 0 ? (
-          <p className="py-8 text-center text-sm text-surface-400">
-            Подходящих замен не нашлось
-          </p>
-        ) : (
-          <div className="mt-4 space-y-2">
-            {alternatives.map((alt) => (
-              <button
-                key={alt.stats.recipe.id}
-                onClick={() => onPick(alt)}
-                className="flex w-full items-center gap-3 rounded-2xl bg-surface-50 px-4 py-3 text-left transition-transform active:scale-[0.99] dark:bg-surface-800"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="text-[15px] font-semibold text-surface-900 dark:text-white">
-                    {alt.stats.recipe.name}
-                  </div>
-                  <div className="mt-0.5 text-[12px] text-surface-400">
-                    {ROLE_LABEL[alt.stats.recipe.role]} · {alt.stats.recipe.minutes} мин
-                  </div>
-                </div>
-                <div className="shrink-0 text-right">
-                  <div className="tnum text-[13px] font-semibold text-surface-900 dark:text-white">
-                    {Math.round(alt.stats.nutrients.kcal)} ккал
-                  </div>
-                  <div
-                    className={cx(
-                      'tnum text-[11px]',
-                      alt.costDelta < 0 ? 'text-brand-600' : 'text-surface-400',
-                    )}
-                  >
-                    {alt.costDelta >= 0 ? '+' : ''}
-                    {Math.round(alt.costDelta)} ₽
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -367,13 +297,14 @@ export function MenuScreen({ store }: { store: Store }) {
           <br />
           Точка слева — готовить, серая — разогреть готовое
           <br />
-          Нажмите на блюдо, чтобы заменить его
+          Нажмите на блюдо — состав, рецепт и замена
         </p>
       </div>
 
       {swapping && (
-        <SwapSheet
+        <RecipeSheet
           dish={swapping.dish}
+          eaters={state.eaters.length}
           alternatives={alternatives}
           onClose={() => setSwapping(null)}
           onPick={(alt) => {
