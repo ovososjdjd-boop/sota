@@ -206,12 +206,15 @@ function buildDishModel(
   // продаются упаковками. Точная линеаризация невозможна (ступенчатая
   // функция), поэтому закладываем ожидаемую переплату в стоимость блюда.
   // Без этого недельный план на 5000 ₽ давал чек 5120 ₽.
+  // Запас 3%: штраф за упаковки — оценка, а не точный расчёт (упаковки
+  // ступенчаты). Без запаса чек изредка превышал бюджет на десятки рублей,
+  // а это прямое нарушение обещания пользователю.
   lines.push(
     ` budget: ` +
       candidates
         .map((c, i) => `${(c.stats.cost + c.packagingPenalty * 0.6).toFixed(6)} x${i}`)
         .join(' + ') +
-      ` <= ${budget.toFixed(2)}`,
+      ` <= ${(budget * 0.97).toFixed(2)}`,
   );
 
   // ── кулинарные ограничения на уровне категорий ингредиентов ──
@@ -232,12 +235,20 @@ function buildDishModel(
         ` catmax_${category}: ${terms} <= ${(totalKcal * rule.maxEnergyShare).toFixed(2)}`,
       );
     }
-    // Минимальные доли категорий НЕ переносятся на уровень блюд.
-    // В продуктовой корзине «хлеб ≥5% энергии» осмысленно, но блюд,
-    // состоящих из хлеба, почти нет — он входит в состав как добавка.
-    // Требование делало задачу невыполнимой (нужно 1052 ккал, максимум 1041).
-    // Разнообразие на уровне блюд обеспечивают ограничения по слотам
-    // и качественному белку.
+    // Минимальные доли категорий переносятся на блюда ВЫБОРОЧНО.
+    //
+    // Для «хлеба» требование бессмысленно: блюд из одного хлеба почти нет,
+    // он входит в состав как добавка — ограничение делало задачу
+    // невыполнимой (нужно 1052 ккал, максимум достижимо 1041).
+    //
+    // Но для мяса и рыбы оно необходимо: без него оптимизатор экономил
+    // и давал 1.1% энергии из мяса — неделя фактически без мясных блюд.
+    const NEEDS_MINIMUM: string[] = ['meat', 'fish', 'dairy'];
+    if (rule.minEnergyShare > 0 && NEEDS_MINIMUM.includes(category)) {
+      lines.push(
+        ` catmin_${category}: ${terms} >= ${(totalKcal * rule.minEnergyShare).toFixed(2)}`,
+      );
+    }
   }
 
   // качественный белок
@@ -545,14 +556,36 @@ export async function planMenu(
     );
   }
 
-  // сужение границ по LP — тот же приём, что и в продуктовом оптимизаторе
-  const bounded = candidates.map((c, i) => ({
-    ...c,
-    maxPortions: Math.min(
-      c.maxPortions,
-      Math.max(Math.ceil((lp.Columns?.[`x${i}`]?.Primal ?? 0) * 2) + 6, 6),
-    ),
-  }));
+  // Сужение границ по LP + шорт-лист. База выросла до 112 блюд,
+  // и MILP на всех кандидатах занимал 3.7 с. LP-релаксация подсказывает,
+  // какие блюда перспективны, а какие можно отбросить.
+  const scored = candidates
+    .map((c, i) => ({ c, v: lp.Columns?.[`x${i}`]?.Primal ?? 0, i }))
+    .sort((a, b) => b.v - a.v);
+
+  const SHORTLIST = 70;
+  const keep = new Set(scored.slice(0, SHORTLIST).map((x) => x.i));
+  // добираем разнообразие: минимум по 6 блюд каждой роли
+  const byRole = new Map<string, number>();
+  for (const { c, i } of scored) {
+    const role = c.stats.recipe.role;
+    const n = byRole.get(role) ?? 0;
+    if (n < 6) {
+      keep.add(i);
+      byRole.set(role, n + 1);
+    }
+  }
+
+  const bounded = candidates
+    .map((c, i) => ({ c, i }))
+    .filter(({ i }) => keep.has(i))
+    .map(({ c, i }) => ({
+      ...c,
+      maxPortions: Math.min(
+        c.maxPortions,
+        Math.max(Math.ceil((lp.Columns?.[`x${i}`]?.Primal ?? 0) * 2) + 6, 6),
+      ),
+    }));
 
   const milpModel = buildDishModel(
     bounded,

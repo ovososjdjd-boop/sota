@@ -904,6 +904,605 @@ export const RECIPES: Recipe[] = [
       { productId: 'butter', grams: 10 },
     ],
   },
+  // ═══════════ Расширение: супы ═══════════
+  {
+    id: 'rassolnik', name: 'Рассольник', role: 'soup', slots: ['lunch'],
+    minutes: 60, batchPortions: 6, keepsDays: 3, tags: [],
+    ingredients: [
+      { productId: 'pearl_barley', grams: 30, method: 'boiled' },
+      { productId: 'potato', grams: 90, method: 'boiled' },
+      { productId: 'pickled_cucumber', grams: 60 },
+      { productId: 'carrot', grams: 30, method: 'stewed' },
+      { productId: 'onion', grams: 25, method: 'stewed' },
+      { productId: 'beef_stew_meat', grams: 60, method: 'boiled' },
+      { productId: 'sunflower_oil', grams: 8 },
+      { productId: 'sour_cream', grams: 20 },
+    ],
+  },
+  {
+    id: 'solyanka', name: 'Солянка мясная', role: 'soup', slots: ['lunch'],
+    minutes: 65, batchPortions: 6, keepsDays: 3, tags: [],
+    ingredients: [
+      { productId: 'boiled_sausage', grams: 40 },
+      { productId: 'ham', grams: 35 },
+      { productId: 'potato', grams: 70, method: 'boiled' },
+      { productId: 'pickled_cucumber', grams: 50 },
+      { productId: 'onion', grams: 30, method: 'stewed' },
+      { productId: 'tomato_paste', grams: 15 },
+      { productId: 'lemon', grams: 10 },
+      { productId: 'sour_cream', grams: 20 },
+    ],
+  },
+  {
+    id: 'mushroom_soup', name: 'Грибной суп', role: 'soup', slots: ['lunch'],
+    minutes: 45, batchPortions: 5, keepsDays: 2, tags: ['vegetarian'],
+    ingredients: [
+      { productId: 'mushrooms', grams: 120, method: 'fried' },
+      { productId: 'potato', grams: 100, method: 'boiled' },
+      { productId: 'carrot', grams: 30, method: 'stewed' },
+      { productId: 'onion', grams: 30, method: 'stewed' },
+      { productId: 'cream_10', grams: 30 },
+      { productId: 'sunflower_oil', grams: 10 },
+    ],
+  },
+  {
+    id: 'bean_soup', name: 'Фасолевый суп', role: 'soup', slots: ['lunch'],
+    minutes: 60, batchPortions: 5, keepsDays: 3, tags: ['vegan'],
+    ingredients: [
+      { productId: 'beans_canned', grams: 130 },
+      { productId: 'potato', grams: 80, method: 'boiled' },
+      { productId: 'carrot', grams: 35, method: 'stewed' },
+      { productId: 'onion', grams: 30, method: 'stewed' },
+      { productId: 'tomato_paste', grams: 15 },
+      { productId: 'sunflower_oil', grams: 10 },
+    ],
+  },
+  {
+    id: 'chicken_rice_soup', name: 'Куриный суп с рисом', role: 'soup', slots: ['lunch'],
+    minutes: 45, batchPortions: 5, keepsDays: 2, tags: ['gluten-free'],
+    ingredients: [
+      { productId: 'chicken_breast_bone', grams: 90, method: 'boiled' },
+      { productId: 'rice', grams: 25, method: 'boiled' },
+      { productId: 'potato', grams: 70, method: 'boiled' },
+      { productId: 'carrot', grams: 30, method: 'stewed' },
+      { productId: 'onion', grams: 25, method: 'stewed' },
+      { productId: 'greens', grams: 5 },
+    ],
+  },
+  {
+    id: 'cabbage_soup_sauer', name: 'Щи из квашеной капусты', role: 'soup', slots: ['lunch'],
+    minutes: 65, batchPortions: 6, keepsDays: 3, tags: [],
+    ingredients: [
+      { productId: 'cabbage_sauer', grams: 120, method: 'stewed' },
+      { productId: 'potato', grams: 80, method: 'boiled' },
+      { productId: 'carrot', grams: 30, method: 'stewed' },
+      { productId: 'onion', grams: 25, method: 'stewed' },
+      { productId: 'pork', grams: 55, method: 'boiled' },
+      { productId: 'sunflower_oil', grams: 8 },
+      { productId: 'sour_cream', grams: 20 },
+    ],
+  },
+  {
+    id: 'kharcho', name: 'Суп харчо', role: 'soup', slots: ['lunch'],
+    minutes: 70, batchPortions: 5, keepsDays: 3, tags: [],
+    ingredients: [
+      { productId: 'beef_stew_meat', grams: 70, method: 'boiled' },
+      { productId: 'rice', grams: 35, method: 'boiled' },
+      { productId: 'onion', grams: 35, method: 'stewed' },
+      { productId: 'tomato_paste', grams: 20 },
+      { productId: 'garlic', grams: 5 },
+      { productId: 'walnuts', grams: 10 },
+      { productId: 'sunflower_oil', grams: 10 },
+    ],
+  },
+
+  // ═══════════ Основные блюда ═══════════
+  {
+    id: 'plov', name: 'Плов', role: 'main', slots: ['lunch', 'dinner'],
+    minutes: 60, batchPortions: 5, keepsDays: 3, tags: ['gluten-free'],
+    ingredients: [
+      { productId: 'rice', grams: 90, method: 'boiled' },
+      { productId: 'pork', grams: 100, method: 'stewed' },
+      { productId: 'carrot', grams: 70, method: 'stewed' },
+      { productId: 'onion', grams: 40, method: 'stewed' },
+      { productId: 'garlic', grams: 5 },
+      { productId: 'sunflower_oil', grams: 15 },
+    ],
+  },
+  {
+    id: 'goulash_buckwheat', name: 'Гуляш с гречкой', role: 'main', slots: ['lunch', 'dinner'],
+    minutes: 55, batchPortions: 4, keepsDays: 3, tags: [],
+    ingredients: [
+      { productId: 'beef_stew_meat', grams: 110, method: 'stewed' },
+      { productId: 'buckwheat', grams: 70, method: 'boiled' },
+      { productId: 'onion', grams: 35, method: 'stewed' },
+      { productId: 'carrot', grams: 40, method: 'stewed' },
+      { productId: 'tomato_paste', grams: 15 },
+      { productId: 'flour', grams: 10 },
+      { productId: 'sunflower_oil', grams: 12 },
+    ],
+  },
+  {
+    id: 'chicken_pasta_cream', name: 'Паста с курицей в сливках', role: 'main', slots: ['lunch', 'dinner'],
+    minutes: 30, batchPortions: 3, keepsDays: 1, tags: [],
+    ingredients: [
+      { productId: 'pasta', grams: 90, method: 'boiled' },
+      { productId: 'chicken_fillet', grams: 110, method: 'fried' },
+      { productId: 'cream_10', grams: 60 },
+      { productId: 'onion', grams: 25, method: 'fried' },
+      { productId: 'cheese', grams: 20 },
+      { productId: 'sunflower_oil', grams: 10 },
+    ],
+  },
+  {
+    id: 'stuffed_peppers', name: 'Перцы фаршированные', role: 'main', slots: ['lunch', 'dinner'],
+    minutes: 65, batchPortions: 4, keepsDays: 3, tags: ['gluten-free'],
+    ingredients: [
+      { productId: 'bell_pepper', grams: 200, method: 'stewed' },
+      { productId: 'mince', grams: 90, method: 'stewed' },
+      { productId: 'rice', grams: 35, method: 'boiled' },
+      { productId: 'carrot', grams: 30, method: 'stewed' },
+      { productId: 'onion', grams: 25, method: 'stewed' },
+      { productId: 'tomato_paste', grams: 15 },
+      { productId: 'sour_cream', grams: 20 },
+    ],
+  },
+  {
+    id: 'cabbage_rolls', name: 'Голубцы', role: 'main', slots: ['lunch', 'dinner'],
+    minutes: 80, batchPortions: 5, keepsDays: 3, tags: ['gluten-free'],
+    ingredients: [
+      { productId: 'cabbage', grams: 180, method: 'stewed' },
+      { productId: 'mince', grams: 90, method: 'stewed' },
+      { productId: 'rice', grams: 35, method: 'boiled' },
+      { productId: 'carrot', grams: 35, method: 'stewed' },
+      { productId: 'onion', grams: 30, method: 'stewed' },
+      { productId: 'tomato_paste', grams: 15 },
+      { productId: 'sour_cream', grams: 20 },
+    ],
+  },
+  {
+    id: 'fish_cutlets', name: 'Рыбные котлеты с пюре', role: 'main', slots: ['lunch', 'dinner'],
+    minutes: 45, batchPortions: 4, keepsDays: 2, tags: [],
+    ingredients: [
+      { productId: 'pollock_fillet', grams: 130, method: 'fried' },
+      { productId: 'potato', grams: 200, method: 'boiled' },
+      { productId: 'milk', grams: 50 },
+      { productId: 'butter', grams: 10 },
+      { productId: 'onion', grams: 25 },
+      { productId: 'bread_wheat', grams: 15 },
+      { productId: 'sunflower_oil', grams: 10 },
+    ],
+  },
+  {
+    id: 'buckwheat_mushrooms', name: 'Гречка с грибами', role: 'main', slots: ['lunch', 'dinner'],
+    minutes: 35, batchPortions: 4, keepsDays: 2, tags: ['vegan', 'gluten-free'],
+    ingredients: [
+      { productId: 'buckwheat', grams: 80, method: 'boiled' },
+      { productId: 'mushrooms', grams: 120, method: 'fried' },
+      { productId: 'onion', grams: 40, method: 'fried' },
+      { productId: 'sunflower_oil', grams: 15 },
+    ],
+  },
+  {
+    id: 'chicken_wings_rice', name: 'Крылья с рисом', role: 'main', slots: ['lunch', 'dinner'],
+    minutes: 50, batchPortions: 3, keepsDays: 2, tags: ['gluten-free'],
+    ingredients: [
+      { productId: 'chicken_wings', grams: 150, method: 'baked' },
+      { productId: 'rice', grams: 70, method: 'boiled' },
+      { productId: 'ketchup', grams: 20 },
+      { productId: 'sunflower_oil', grams: 10 },
+    ],
+  },
+  {
+    id: 'liver_pancakes', name: 'Печёночные оладьи', role: 'main', slots: ['lunch', 'dinner'],
+    minutes: 35, batchPortions: 3, keepsDays: 2, tags: [],
+    ingredients: [
+      { productId: 'liver_beef', grams: 140, method: 'fried' },
+      { productId: 'onion', grams: 35, method: 'fried' },
+      { productId: 'eggs', grams: 30 },
+      { productId: 'flour', grams: 25 },
+      { productId: 'sunflower_oil', grams: 12 },
+      { productId: 'buckwheat', grams: 50, method: 'boiled' },
+    ],
+  },
+  {
+    id: 'squid_rice', name: 'Кальмары с рисом', role: 'main', slots: ['lunch', 'dinner'],
+    minutes: 30, batchPortions: 3, keepsDays: 1, tags: ['gluten-free'],
+    ingredients: [
+      { productId: 'squid', grams: 140, method: 'boiled' },
+      { productId: 'rice', grams: 70, method: 'boiled' },
+      { productId: 'carrot', grams: 40, method: 'stewed' },
+      { productId: 'onion', grams: 30, method: 'fried' },
+      { productId: 'sunflower_oil', grams: 12 },
+    ],
+  },
+  {
+    id: 'lentil_stew', name: 'Чечевица с овощами', role: 'main', slots: ['lunch', 'dinner'],
+    minutes: 45, batchPortions: 4, keepsDays: 3, tags: ['vegan', 'gluten-free'],
+    ingredients: [
+      { productId: 'lentils', grams: 85, method: 'boiled' },
+      { productId: 'carrot', grams: 50, method: 'stewed' },
+      { productId: 'bell_pepper', grams: 60, method: 'stewed' },
+      { productId: 'onion', grams: 35, method: 'stewed' },
+      { productId: 'tomato_paste', grams: 20 },
+      { productId: 'olive_oil', grams: 12 },
+    ],
+  },
+  {
+    id: 'soy_goulash', name: 'Соевый гуляш', role: 'main', slots: ['lunch', 'dinner'],
+    minutes: 35, batchPortions: 4, keepsDays: 3, tags: ['vegan'],
+    ingredients: [
+      { productId: 'soy_meat', grams: 45, method: 'boiled' },
+      { productId: 'buckwheat', grams: 65, method: 'boiled' },
+      { productId: 'carrot', grams: 45, method: 'stewed' },
+      { productId: 'onion', grams: 35, method: 'stewed' },
+      { productId: 'tomato_paste', grams: 20 },
+      { productId: 'sunflower_oil', grams: 12 },
+    ],
+  },
+  {
+    id: 'veg_stew', name: 'Овощное рагу', role: 'main', slots: ['lunch', 'dinner'],
+    minutes: 45, batchPortions: 4, keepsDays: 2, tags: ['vegan', 'gluten-free'],
+    ingredients: [
+      { productId: 'potato', grams: 150, method: 'stewed' },
+      { productId: 'zucchini', grams: 100, method: 'stewed' },
+      { productId: 'eggplant', grams: 80, method: 'stewed' },
+      { productId: 'bell_pepper', grams: 60, method: 'stewed' },
+      { productId: 'carrot', grams: 40, method: 'stewed' },
+      { productId: 'onion', grams: 30, method: 'stewed' },
+      { productId: 'sunflower_oil', grams: 15 },
+    ],
+  },
+  {
+    id: 'capelin_fried', name: 'Мойва жареная с картофелем', role: 'main', slots: ['lunch', 'dinner'],
+    minutes: 35, batchPortions: 3, keepsDays: 1, tags: [],
+    ingredients: [
+      { productId: 'capelin', grams: 160, method: 'fried' },
+      { productId: 'potato', grams: 200, method: 'fried' },
+      { productId: 'flour', grams: 15 },
+      { productId: 'sunflower_oil', grams: 18 },
+    ],
+  },
+  {
+    id: 'pork_ribs_baked', name: 'Рёбра запечённые с овощами', role: 'main', slots: ['lunch', 'dinner'],
+    minutes: 70, batchPortions: 4, keepsDays: 2, tags: ['gluten-free'],
+    ingredients: [
+      { productId: 'pork_ribs', grams: 180, method: 'baked' },
+      { productId: 'potato', grams: 180, method: 'baked' },
+      { productId: 'carrot', grams: 40, method: 'baked' },
+      { productId: 'garlic', grams: 5 },
+      { productId: 'sunflower_oil', grams: 12 },
+    ],
+  },
+  {
+    id: 'bulgur_chicken', name: 'Булгур с курицей', role: 'main', slots: ['lunch', 'dinner'],
+    minutes: 35, batchPortions: 4, keepsDays: 2, tags: [],
+    ingredients: [
+      { productId: 'bulgur', grams: 70, method: 'boiled' },
+      { productId: 'chicken_fillet', grams: 120, method: 'fried' },
+      { productId: 'bell_pepper', grams: 60, method: 'fried' },
+      { productId: 'onion', grams: 30, method: 'fried' },
+      { productId: 'olive_oil', grams: 12 },
+    ],
+  },
+  {
+    id: 'trout_baked', name: 'Форель запечённая', role: 'main', slots: ['lunch', 'dinner'],
+    minutes: 35, batchPortions: 2, keepsDays: 1, tags: ['gluten-free'],
+    ingredients: [
+      { productId: 'salmon_trout', grams: 150, method: 'baked' },
+      { productId: 'potato', grams: 180, method: 'baked' },
+      { productId: 'lemon', grams: 15 },
+      { productId: 'olive_oil', grams: 12 },
+    ],
+  },
+  {
+    id: 'saury_pasta', name: 'Макароны с сайрой', role: 'main', slots: ['lunch', 'dinner'],
+    minutes: 25, batchPortions: 3, keepsDays: 1, tags: [],
+    ingredients: [
+      { productId: 'pasta', grams: 90, method: 'boiled' },
+      { productId: 'canned_saury', grams: 100 },
+      { productId: 'onion', grams: 35, method: 'fried' },
+      { productId: 'sunflower_oil', grams: 10 },
+    ],
+  },
+  {
+    id: 'omelet_veg', name: 'Омлет с овощами', role: 'main', slots: ['breakfast', 'dinner'],
+    minutes: 15, batchPortions: 2, keepsDays: 0, tags: ['vegetarian', 'gluten-free', 'quick'],
+    ingredients: [
+      { productId: 'eggs', grams: 110, method: 'fried' },
+      { productId: 'milk', grams: 50 },
+      { productId: 'bell_pepper', grams: 50, method: 'fried' },
+      { productId: 'tomato', grams: 60, method: 'fried' },
+      { productId: 'cheese', grams: 20 },
+      { productId: 'sunflower_oil', grams: 10 },
+    ],
+  },
+  {
+    id: 'cauliflower_baked', name: 'Цветная капуста запечённая', role: 'side', slots: ['lunch', 'dinner'],
+    minutes: 35, batchPortions: 3, keepsDays: 2, tags: ['vegetarian', 'gluten-free'],
+    ingredients: [
+      { productId: 'cauliflower', grams: 250, method: 'baked' },
+      { productId: 'eggs', grams: 30 },
+      { productId: 'cheese', grams: 25 },
+      { productId: 'sunflower_oil', grams: 10 },
+    ],
+  },
+
+  // ═══════════ Гарниры ═══════════
+  {
+    id: 'bulgur_side', name: 'Булгур с овощами', role: 'side', slots: ['lunch', 'dinner'],
+    minutes: 25, batchPortions: 4, keepsDays: 2, tags: ['vegan'],
+    ingredients: [
+      { productId: 'bulgur', grams: 70, method: 'boiled' },
+      { productId: 'carrot', grams: 40, method: 'fried' },
+      { productId: 'onion', grams: 25, method: 'fried' },
+      { productId: 'sunflower_oil', grams: 10 },
+    ],
+  },
+  {
+    id: 'mashed_potato_side', name: 'Картофельное пюре', role: 'side', slots: ['lunch', 'dinner'],
+    minutes: 30, batchPortions: 4, keepsDays: 2, tags: ['vegetarian', 'gluten-free'],
+    ingredients: [
+      { productId: 'potato', grams: 250, method: 'boiled' },
+      { productId: 'milk', grams: 60 },
+      { productId: 'butter', grams: 12 },
+    ],
+  },
+  {
+    id: 'frozen_veg_side', name: 'Овощная смесь на пару', role: 'side', slots: ['lunch', 'dinner'],
+    minutes: 15, batchPortions: 3, keepsDays: 1, tags: ['vegan', 'gluten-free', 'quick'],
+    ingredients: [
+      { productId: 'frozen_veg_mix', grams: 220, method: 'boiled' },
+      { productId: 'butter', grams: 10 },
+    ],
+  },
+  {
+    id: 'buckwheat_side', name: 'Гречка отварная', role: 'side', slots: ['lunch', 'dinner'],
+    minutes: 25, batchPortions: 4, keepsDays: 3, tags: ['vegetarian', 'gluten-free'],
+    ingredients: [
+      { productId: 'buckwheat', grams: 75, method: 'boiled' },
+      { productId: 'butter', grams: 10 },
+      { productId: 'onion', grams: 20, method: 'fried' },
+    ],
+  },
+
+  // ═══════════ Салаты ═══════════
+  {
+    id: 'olivier', name: 'Салат оливье', role: 'salad', slots: ['lunch', 'dinner'],
+    minutes: 40, batchPortions: 5, keepsDays: 2, tags: ['gluten-free'],
+    ingredients: [
+      { productId: 'potato', grams: 80, method: 'boiled' },
+      { productId: 'carrot', grams: 35, method: 'boiled' },
+      { productId: 'eggs', grams: 55, method: 'boiled' },
+      { productId: 'pickled_cucumber', grams: 50 },
+      { productId: 'green_peas_canned', grams: 50 },
+      { productId: 'boiled_sausage', grams: 50 },
+      { productId: 'mayonnaise', grams: 25 },
+    ],
+  },
+  {
+    id: 'vinegret', name: 'Винегрет', role: 'salad', slots: ['lunch', 'dinner'],
+    minutes: 40, batchPortions: 5, keepsDays: 3, tags: ['vegan', 'gluten-free'],
+    ingredients: [
+      { productId: 'beet', grams: 100, method: 'boiled' },
+      { productId: 'potato', grams: 70, method: 'boiled' },
+      { productId: 'carrot', grams: 40, method: 'boiled' },
+      { productId: 'cabbage_sauer', grams: 50 },
+      { productId: 'pickled_cucumber', grams: 40 },
+      { productId: 'onion', grams: 20 },
+      { productId: 'sunflower_oil', grams: 12 },
+    ],
+  },
+  {
+    id: 'greek_salad', name: 'Греческий салат', role: 'salad', slots: ['lunch', 'dinner'],
+    minutes: 12, batchPortions: 2, keepsDays: 0,
+    tags: ['vegetarian', 'gluten-free', 'no-cook', 'quick'],
+    ingredients: [
+      { productId: 'tomato', grams: 90 },
+      { productId: 'cucumber', grams: 80 },
+      { productId: 'bell_pepper', grams: 50 },
+      { productId: 'cheese_adygei', grams: 45 },
+      { productId: 'onion', grams: 15 },
+      { productId: 'olive_oil', grams: 12 },
+    ],
+  },
+  {
+    id: 'carrot_garlic_salad', name: 'Салат из моркови с чесноком', role: 'salad', slots: ['lunch', 'dinner'],
+    minutes: 10, batchPortions: 3, keepsDays: 2,
+    tags: ['vegetarian', 'gluten-free', 'no-cook', 'quick'],
+    ingredients: [
+      { productId: 'carrot', grams: 120 },
+      { productId: 'garlic', grams: 5 },
+      { productId: 'cheese', grams: 20 },
+      { productId: 'mayonnaise', grams: 20 },
+    ],
+  },
+  {
+    id: 'corn_crab_salad', name: 'Салат с кукурузой и яйцом', role: 'salad', slots: ['lunch', 'dinner'],
+    minutes: 12, batchPortions: 3, keepsDays: 1, tags: ['vegetarian', 'gluten-free', 'quick'],
+    ingredients: [
+      { productId: 'corn_canned', grams: 90 },
+      { productId: 'eggs', grams: 55, method: 'boiled' },
+      { productId: 'cucumber', grams: 60 },
+      { productId: 'mayonnaise', grams: 20 },
+    ],
+  },
+  {
+    id: 'radish_salad', name: 'Салат из редиса', role: 'salad', slots: ['lunch', 'dinner'],
+    minutes: 10, batchPortions: 2, keepsDays: 0,
+    tags: ['vegetarian', 'gluten-free', 'no-cook', 'quick'],
+    ingredients: [
+      { productId: 'radish', grams: 100 },
+      { productId: 'cucumber', grams: 70 },
+      { productId: 'greens', grams: 8 },
+      { productId: 'sour_cream', grams: 25 },
+    ],
+  },
+  {
+    id: 'beet_walnut_salad', name: 'Свёкла с орехами', role: 'salad', slots: ['lunch', 'dinner'],
+    minutes: 15, batchPortions: 3, keepsDays: 2, tags: ['vegetarian', 'gluten-free'],
+    ingredients: [
+      { productId: 'beet', grams: 130, method: 'boiled' },
+      { productId: 'walnuts', grams: 15 },
+      { productId: 'garlic', grams: 4 },
+      { productId: 'mayonnaise', grams: 18 },
+    ],
+  },
+
+  // ═══════════ Завтраки ═══════════
+  {
+    id: 'buckwheat_flakes_porridge', name: 'Гречневые хлопья с ягодами', role: 'porridge', slots: ['breakfast'],
+    minutes: 12, batchPortions: 2, keepsDays: 1, tags: ['vegetarian', 'gluten-free', 'quick'],
+    ingredients: [
+      { productId: 'buckwheat_flakes', grams: 55, method: 'boiled' },
+      { productId: 'milk', grams: 200 },
+      { productId: 'frozen_berries', grams: 60 },
+      { productId: 'honey', grams: 12 },
+    ],
+  },
+  {
+    id: 'rice_porridge_milk', name: 'Рисовая каша на молоке', role: 'porridge', slots: ['breakfast'],
+    minutes: 30, batchPortions: 3, keepsDays: 2, tags: ['vegetarian', 'gluten-free'],
+    ingredients: [
+      { productId: 'rice', grams: 60, method: 'boiled' },
+      { productId: 'milk', grams: 200 },
+      { productId: 'butter', grams: 10 },
+      { productId: 'raisins', grams: 20 },
+      { productId: 'sugar', grams: 8 },
+    ],
+  },
+  {
+    id: 'oatmeal_banana_nuts', name: 'Овсянка с бананом и орехами', role: 'porridge', slots: ['breakfast'],
+    minutes: 12, batchPortions: 2, keepsDays: 1, tags: ['vegetarian', 'quick'],
+    ingredients: [
+      { productId: 'oat_flakes_instant', grams: 60, method: 'boiled' },
+      { productId: 'milk', grams: 200 },
+      { productId: 'banana', grams: 90 },
+      { productId: 'walnuts', grams: 15 },
+    ],
+  },
+  {
+    id: 'cottage_cheese_casserole', name: 'Творожная запеканка', role: 'main', slots: ['breakfast', 'snack'],
+    minutes: 45, batchPortions: 4, keepsDays: 3, tags: ['vegetarian'],
+    ingredients: [
+      { productId: 'cottage_cheese', grams: 170 },
+      { productId: 'eggs', grams: 40 },
+      { productId: 'semolina', grams: 25 },
+      { productId: 'sugar', grams: 15 },
+      { productId: 'raisins', grams: 20 },
+      { productId: 'sour_cream', grams: 20 },
+    ],
+  },
+  {
+    id: 'egg_toast_avocado', name: 'Тост с яйцом и сыром', role: 'bakery', slots: ['breakfast'],
+    minutes: 10, batchPortions: 1, keepsDays: 0, tags: ['vegetarian', 'quick'],
+    ingredients: [
+      { productId: 'bread_rye', grams: 70 },
+      { productId: 'eggs', grams: 55, method: 'fried' },
+      { productId: 'processed_cheese', grams: 25 },
+      { productId: 'tomato', grams: 50 },
+      { productId: 'butter', grams: 8 },
+    ],
+  },
+  {
+    id: 'milk_soup_vermicelli', name: 'Молочный суп с вермишелью', role: 'porridge', slots: ['breakfast'],
+    minutes: 20, batchPortions: 3, keepsDays: 1, tags: ['vegetarian'],
+    ingredients: [
+      { productId: 'vermicelli', grams: 45, method: 'boiled' },
+      { productId: 'milk_35', grams: 250 },
+      { productId: 'butter', grams: 10 },
+      { productId: 'sugar', grams: 10 },
+    ],
+  },
+  {
+    id: 'scrambled_sausage', name: 'Яичница с сосисками', role: 'main', slots: ['breakfast'],
+    minutes: 12, batchPortions: 1, keepsDays: 0, tags: ['quick'],
+    ingredients: [
+      { productId: 'eggs', grams: 110, method: 'fried' },
+      { productId: 'sausages', grams: 60 },
+      { productId: 'bread_wheat', grams: 40 },
+      { productId: 'sunflower_oil', grams: 8 },
+    ],
+  },
+  {
+    id: 'bran_kefir_breakfast', name: 'Кефир с отрубями и ягодами', role: 'snack', slots: ['breakfast', 'snack'],
+    minutes: 3, batchPortions: 1, keepsDays: 0, tags: ['vegetarian', 'quick', 'no-cook'],
+    ingredients: [
+      { productId: 'kefir', grams: 220 },
+      { productId: 'bran', grams: 20 },
+      { productId: 'frozen_berries', grams: 60 },
+      { productId: 'honey', grams: 12 },
+    ],
+  },
+
+  // ═══════════ Перекусы и напитки ═══════════
+  {
+    id: 'cocoa_cookies', name: 'Какао с печеньем', role: 'drink', slots: ['snack'],
+    minutes: 6, batchPortions: 1, keepsDays: 0, tags: ['vegetarian', 'quick'],
+    ingredients: [
+      { productId: 'cocoa', grams: 8 },
+      { productId: 'milk', grams: 200 },
+      { productId: 'sugar', grams: 12 },
+      { productId: 'cookies', grams: 30 },
+    ],
+  },
+  {
+    id: 'coffee_milk', name: 'Кофе с молоком', role: 'drink', slots: ['snack', 'breakfast'],
+    minutes: 4, batchPortions: 1, keepsDays: 0, tags: ['vegetarian', 'quick'],
+    ingredients: [
+      { productId: 'coffee', grams: 8 },
+      { productId: 'milk', grams: 100 },
+      { productId: 'sugar', grams: 8 },
+    ],
+  },
+  {
+    id: 'mandarins_snack', name: 'Мандарины', role: 'snack', slots: ['snack'],
+    minutes: 2, batchPortions: 1, keepsDays: 0, tags: ['vegan', 'gluten-free', 'no-cook', 'quick'],
+    ingredients: [{ productId: 'mandarin', grams: 180 }],
+  },
+  {
+    id: 'kiwi_snack', name: 'Киви', role: 'snack', slots: ['snack'],
+    minutes: 2, batchPortions: 1, keepsDays: 0, tags: ['vegan', 'gluten-free', 'no-cook', 'quick'],
+    ingredients: [{ productId: 'kiwi', grams: 180 }],
+  },
+  {
+    id: 'dried_fruit_mix', name: 'Сухофрукты с орехами', role: 'snack', slots: ['snack'],
+    minutes: 2, batchPortions: 1, keepsDays: 0, tags: ['vegan', 'gluten-free', 'no-cook', 'quick'],
+    ingredients: [
+      { productId: 'prunes', grams: 30 },
+      { productId: 'raisins', grams: 20 },
+      { productId: 'walnuts', grams: 20 },
+    ],
+  },
+  {
+    id: 'chocolate_tea', name: 'Чай с шоколадом', role: 'drink', slots: ['snack'],
+    minutes: 4, batchPortions: 1, keepsDays: 0, tags: ['vegetarian', 'quick'],
+    ingredients: [
+      { productId: 'tea', grams: 2 },
+      { productId: 'chocolate_dark', grams: 25 },
+      { productId: 'sugar', grams: 8 },
+    ],
+  },
+  {
+    id: 'bread_jam_tea', name: 'Чай с вареньем', role: 'drink', slots: ['snack'],
+    minutes: 4, batchPortions: 1, keepsDays: 0, tags: ['vegetarian', 'quick'],
+    ingredients: [
+      { productId: 'tea', grams: 2 },
+      { productId: 'jam', grams: 30 },
+      { productId: 'bread_wheat', grams: 40 },
+      { productId: 'butter', grams: 8 },
+    ],
+  },
+  {
+    id: 'yogurt_drink_snack', name: 'Питьевой йогурт', role: 'drink', slots: ['snack'],
+    minutes: 1, batchPortions: 1, keepsDays: 0, tags: ['vegetarian', 'gluten-free', 'no-cook', 'quick'],
+    ingredients: [{ productId: 'yogurt_drink', grams: 290 }],
+  },
+  {
+    id: 'pumpkin_seeds_snack', name: 'Тыквенные семечки', role: 'snack', slots: ['snack'],
+    minutes: 1, batchPortions: 1, keepsDays: 0, tags: ['vegan', 'gluten-free', 'no-cook', 'quick'],
+    ingredients: [{ productId: 'pumpkin_seeds', grams: 30 }],
+  },
 ];
 
 
