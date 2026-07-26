@@ -164,6 +164,45 @@ describe('пользовательский путь', () => {
     });
   }, 60000);
 
+  it('экран покупок показывает упаковки и чекбоксы', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: /Составить меню/i }));
+    await waitFor(() => expect(screen.getByText(/Список покупок/i)).toBeInTheDocument(), {
+      timeout: 30000,
+    });
+
+    await user.click(screen.getByRole('button', { name: /Покупки/i }));
+    expect(screen.getByText(/К оплате в магазине/i)).toBeInTheDocument();
+    expect(screen.getByText(/собрано/i)).toBeInTheDocument();
+    // отделы магазина, а не пищевые категории
+    const text = document.body.textContent ?? '';
+    expect(/Молочный отдел|Хлебный отдел|Бакалея|Овощи/.test(text)).toBe(true);
+  }, 60000);
+
+  it('отметка товара в списке покупок работает', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: /Составить меню/i }));
+    await waitFor(() => expect(screen.getByText(/Список покупок/i)).toBeInTheDocument(), {
+      timeout: 30000,
+    });
+    await user.click(screen.getByRole('button', { name: /Покупки/i }));
+
+    const readDone = () => {
+      const m = (document.body.textContent ?? '').match(/(\d+)\s*\/\s*(\d+)/);
+      return m ? Number(m[1]) : -1;
+    };
+    expect(readDone()).toBe(0);
+
+    // кликаем первый товар (кнопки товаров идут после вкладок)
+    const buttons = screen.getAllByRole('button');
+    const itemButton = buttons.find((b) => /₽/.test(b.textContent ?? ''));
+    expect(itemButton).toBeTruthy();
+    await user.click(itemButton!);
+    expect(readDone()).toBe(1);
+  }, 60000);
+
   it('дисклеймер о немедицинском характере присутствует', async () => {
     const user = userEvent.setup();
     render(<App />);

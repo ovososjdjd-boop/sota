@@ -2,14 +2,16 @@ import { useState } from 'react';
 import { useAppState } from './state/store';
 import { Onboarding } from './screens/Onboarding';
 import { PlanScreen } from './screens/PlanScreen';
+import { ShoppingScreen } from './screens/ShoppingScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { Icon, cx } from './ui/primitives';
 
-type Tab = 'plan' | 'settings';
+type Tab = 'plan' | 'shopping' | 'settings';
 
 function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   const tabs: { id: Tab; label: string; icon: (p: { className?: string }) => JSX.Element }[] = [
-    { id: 'plan', label: 'Меню', icon: Icon.Cart },
+    { id: 'plan', label: 'Меню', icon: Icon.Chart },
+    { id: 'shopping', label: 'Покупки', icon: Icon.Cart },
     { id: 'settings', label: 'Настройки', icon: Icon.Settings },
   ];
 
@@ -52,7 +54,9 @@ export default function App() {
   return (
     <div className="flex min-h-full flex-col bg-surface-50 dark:bg-surface-950">
       <main className="flex-1">
-        {tab === 'plan' ? <PlanScreen store={store} /> : <SettingsScreen store={store} />}
+        {tab === 'plan' && <PlanScreen store={store} />}
+        {tab === 'shopping' && <ShoppingScreen store={store} />}
+        {tab === 'settings' && <SettingsScreen store={store} />}
       </main>
       <TabBar tab={tab} onChange={setTab} />
     </div>
