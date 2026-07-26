@@ -107,6 +107,39 @@ describe('кулинарная адекватность', () => {
   }, 30000);
 });
 
+describe('качество продуктового набора', () => {
+  it('переработанное мясо ограничено (рекомендация ВОЗ)', async () => {
+    // раньше: 18 сосисок как ЕДИНСТВЕННЫЙ источник мяса на неделю
+    const r = await plan(5000);
+    for (const item of r.items.filter((i) => i.product.tags.includes('processed'))) {
+      const perDay = item.grams / 7;
+      expect(perDay, item.product.name).toBeLessThanOrEqual(55);
+    }
+  }, 30000);
+
+  it('в списке нет микроскопических позиций-шума', async () => {
+    // раньше: «Курага 1 шт» на неделю — не покупка, а мусор в списке
+    const r = await plan(5000);
+    for (const item of r.items) {
+      const significant =
+        item.nutrients.kcal >= r.target.kcal * 0.004 || item.grams >= 40;
+      expect(significant, `${item.product.name}: ${Math.round(item.grams)} г`).toBe(true);
+    }
+  }, 30000);
+
+  it('белок собирается из нескольких источников, а не одного', async () => {
+    const r = await plan(5000);
+    const proteinItems = r.items.filter(
+      (i) => PROTEIN_CATEGORIES.includes(i.product.category) && i.nutrients.protein > 20,
+    );
+    expect(proteinItems.length).toBeGreaterThanOrEqual(3);
+  }, 30000);
+
+  it('база продуктов достаточно велика для разнообразия', () => {
+    expect(PRODUCTS.length).toBeGreaterThanOrEqual(60);
+  });
+});
+
 describe('масштабирование по периоду', () => {
   it('месячный план не объявляется невозможным из-за скоропорта', async () => {
     // раньше: молоко резалось до срока хранения (7 дней),
@@ -134,6 +167,48 @@ describe('масштабирование по периоду', () => {
     const month = await plan(15000, 30);
     expect(month.totalCost).toBeGreaterThan(week.totalCost);
   }, 60000);
+});
+
+describe('реальные жизненные сценарии', () => {
+  const female: EaterProfile = { ...eater, id: '2', sex: 'female', weightKg: 60, heightCm: 165 };
+  const child10: EaterProfile = { ...eater, id: '3', age: 10, weightKg: 33, heightCm: 140 };
+  const child7: EaterProfile = { ...eater, id: '4', age: 7, weightKg: 24, heightCm: 122, sex: 'female' };
+
+  it('семья из 3 человек на месяц — решается', async () => {
+    const r = await plan(25000, 30, [eater, female, child10]);
+    expect(r.status).toBe('optimal');
+  }, 60000);
+
+  it('семья из 4 человек на месяц — решается', async () => {
+    // раньше падало даже при 100 000 ₽: жёсткий потолок 60 единиц
+    // на продукт не масштабировался с размером семьи
+    const r = await plan(30000, 30, [eater, female, child10, child7]);
+    expect(r.status).toBe('optimal');
+    expect(r.totalCost).toBeLessThanOrEqual(30000);
+  }, 60000);
+
+  it('большая семья не становится «невыполнимой» при щедром бюджете', async () => {
+    const r = await plan(100000, 30, [eater, female, child10, child7]);
+    expect(r.status).toBe('optimal');
+  }, 60000);
+
+  it('жёсткий бюджет 1500 ₽ на неделю всё ещё даёт рацион', async () => {
+    const r = await plan(1500, 7);
+    expect(r.status).toBe('optimal');
+    expect(r.items.length).toBeGreaterThanOrEqual(8);
+  }, 30000);
+
+  it('время ответа приемлемо для телефона во всех сценариях', async () => {
+    const cases: [number, number, EaterProfile[]][] = [
+      [5000, 7, [eater]],
+      [20000, 30, [eater, female]],
+      [30000, 30, [eater, female, child10, child7]],
+    ];
+    for (const [b, d, e] of cases) {
+      const r = await plan(b, d, e);
+      expect(r.solveTimeMs, `${b}₽/${d}д/${e.length}чел`).toBeLessThan(4000);
+    }
+  }, 90000);
 });
 
 describe('честность перед пользователем', () => {

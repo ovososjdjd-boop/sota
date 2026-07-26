@@ -30,6 +30,7 @@ import {
   PROTEIN_CATEGORIES,
   MIN_QUALITY_PROTEIN_SHARE,
   CONDIMENT_MAX_GRAMS_PER_PERSON_DAY,
+  PROCESSED_MAX_GRAMS_PER_PERSON_DAY,
   FIBER_TARGET_PER_PERSON_DAY,
   FIBER_MIN_SHARE,
   PRODUCE_MIN_GRAMS_PER_PERSON_DAY,
@@ -163,9 +164,14 @@ function toCandidate(
     : 1;
 
   const isCondiment = product.tags.includes('condiment');
-  const perDayCap = isCondiment
-    ? Math.min(limit.maxGramsPerPersonDay, CONDIMENT_MAX_GRAMS_PER_PERSON_DAY)
-    : limit.maxGramsPerPersonDay;
+  const isProcessed = product.tags.includes('processed');
+  let perDayCap = limit.maxGramsPerPersonDay;
+  if (isCondiment) {
+    perDayCap = Math.min(perDayCap, CONDIMENT_MAX_GRAMS_PER_PERSON_DAY);
+  }
+  if (isProcessed) {
+    perDayCap = Math.min(perDayCap, PROCESSED_MAX_GRAMS_PER_PERSON_DAY);
+  }
   const maxGrams = perDayCap * effectiveDays * eaters;
   let maxUnits = Math.floor(maxGrams / unitGrams);
 
@@ -174,7 +180,12 @@ function toCandidate(
     const energyCap = (2200 * eaters * days * 0.3) / unitNutrients.kcal;
     maxUnits = Math.min(maxUnits, Math.floor(energyCap));
   }
-  maxUnits = Math.max(1, Math.min(maxUnits, 60));
+  // Технический потолок числа единиц: держит MILP быстрым, но обязан
+  // масштабироваться с размером семьи и длиной периода. Раньше это была
+  // жёсткая константа 60 — и семья из 3+ человек на месяц становилась
+  // «невыполнимой»: 60 стаканов молока на 120 человеко-дней не хватает.
+  const scaleCap = Math.max(60, Math.ceil(12 * eaters * Math.sqrt(days)));
+  maxUnits = Math.max(1, Math.min(maxUnits, scaleCap));
 
   const reliability = measure ? MEASURE_RELIABILITY[measure.kind] : 0.3;
   const penalty = 1 - reliability;
@@ -578,9 +589,22 @@ export async function optimizeBasket(
   let totalCost = 0;
   const actual = zeroNutrients();
 
+  // Порог значимости: позиции, дающие меньше 1% энергии рациона и
+  // микроскопические по массе, только засоряют список покупок
+  // («1 шт кураги» на неделю — не покупка, а шум).
+  const MIN_ITEM_KCAL_SHARE = 0.004;
+  const MIN_ITEM_GRAMS = 40;
+
   bounded.forEach((c, i) => {
     const units = Math.round(sol.Columns[`u${i}`]?.Primal ?? 0);
     if (units <= 0) return;
+
+    const itemKcal = c.unitNutrients.kcal * units;
+    const itemGrams = c.unitGrams * units;
+    const negligible =
+      itemKcal < targets.kcal.target * MIN_ITEM_KCAL_SHARE &&
+      itemGrams < MIN_ITEM_GRAMS;
+    if (negligible) return;
 
     const netGrams = units * c.unitGrams;
     const grossGrams = grossFromNet(c.product, netGrams);

@@ -216,6 +216,7 @@ export const PRODUCTS: Product[] = [
   }),
   p('sausages', 'Сосиски, сардельки', 'meat', 266, 10.4, 24.0, 1.6, 560, {
     measures: [pieceMeasure(50, 'шт')],
+    tags: ['processed'],
     packSizes: [400, 500],
     shelfLifeDays: 10,
     perishable: true,
@@ -398,7 +399,131 @@ export const PRODUCTS: Product[] = [
     packSizes: [100, 200],
     tags: ['vegan'],
   }),
+
+  // ───────────────── Расширение базы ─────────────────
+  p('barley_groats', 'Крупа ячневая', 'grain', 313, 10.0, 1.3, 65.4, 62, {
+    fiber: 8.1,
+    yields: { boiled: 3.0 },
+    measures: [volumeMeasure('glass', 1.0), volumeMeasure('tbsp', 1.0)],
+    packSizes: [800], shelfLifeDays: 480, tags: ['vegan'],
+  }),
+  p('corn_groats', 'Крупа кукурузная', 'grain', 328, 8.3, 1.2, 71.0, 95, {
+    fiber: 4.8,
+    yields: { boiled: 3.5 },
+    measures: [volumeMeasure('glass', 0.9), volumeMeasure('tbsp', 1.0)],
+    packSizes: [700], tags: ['vegan', 'gluten-free'],
+  }),
+  p('buckwheat_flakes', 'Хлопья гречневые', 'grain', 330, 11.0, 3.0, 62.0, 130, {
+    fiber: 9.0,
+    yields: { boiled: 3.0 },
+    measures: [volumeMeasure('glass', 0.5)],
+    packSizes: [400, 500], tags: ['vegan', 'gluten-free'],
+  }),
+  p('vermicelli', 'Вермишель', 'grain', 344, 10.7, 1.3, 71.5, 164, {
+    fiber: 3.7,
+    yields: { boiled: 2.5 },
+    measures: [packMeasure(100, 'горсть ≈100 г')],
+    packSizes: [400, 450], tags: ['vegan'],
+  }),
+  p('chickpeas', 'Нут', 'legume', 309, 20.1, 4.3, 46.2, 190, {
+    fiber: 9.9,
+    yields: { boiled: 2.4 },
+    measures: [volumeMeasure('glass', 0.9), volumeMeasure('tbsp', 1.0)],
+    packSizes: [450, 900], shelfLifeDays: 540, tags: ['vegan', 'gluten-free'],
+  }),
+  p('turkey', 'Индейка (филе)', 'meat', 138, 19.2, 7.0, 0.0, 480, {
+    yields: { boiled: 0.62, fried: 0.7, baked: 0.72 },
+    measures: [pieceMeasure(150, 'кусок ≈150 г')],
+    packSizes: [500, 1000], shelfLifeDays: 4, perishable: true,
+  }),
+  p('chicken_wings', 'Крылья куриные', 'meat', 186, 19.2, 12.2, 0.0, 230, {
+    wasteRatio: 0.32,
+    yields: { baked: 0.7, fried: 0.68 },
+    measures: [pieceMeasure(90, 'шт')],
+    packSizes: [1000], shelfLifeDays: 5, perishable: true,
+  }),
+  p('herring_frozen', 'Скумбрия мороженая', 'fish', 191, 18.0, 13.2, 0.0, 320, {
+    wasteRatio: 0.35,
+    yields: { baked: 0.78, fried: 0.77 },
+    measures: [pieceMeasure(300, 'тушка ≈300 г')],
+    packSizes: [1000], shelfLifeDays: 90,
+  }),
+  p('hake', 'Хек мороженый', 'fish', 86, 16.6, 2.2, 0.0, 350, {
+    wasteRatio: 0.3,
+    yields: { boiled: 0.8, fried: 0.79 },
+    measures: [pieceMeasure(150, 'филе ≈150 г')],
+    packSizes: [800, 1000], shelfLifeDays: 90,
+  }),
+  p('ryazhenka', 'Ряженка', 'dairy', 54, 2.9, 2.5, 4.2, 130, {
+    measures: [volumeMeasure('glass', 1.03), packMeasure(450, 'бутылка 450 г')],
+    packSizes: [450, 900], shelfLifeDays: 7, perishable: true, tags: ['vegetarian'],
+  }),
+  p('yogurt', 'Йогурт натуральный', 'dairy', 66, 5.0, 3.2, 3.5, 260, {
+    measures: [packMeasure(125, 'баночка 125 г'), volumeMeasure('glass', 1.03)],
+    packSizes: [125, 250, 400], shelfLifeDays: 10, perishable: true, tags: ['vegetarian'],
+  }),
+  p('cottage_cheese_9', 'Творог 9%', 'dairy', 159, 16.7, 9.0, 2.0, 460, {
+    measures: [packMeasure(200, 'пачка 200 г'), volumeMeasure('tbsp', 1.67)],
+    packSizes: [180, 200, 400], shelfLifeDays: 5, perishable: true, tags: ['vegetarian'],
+  }),
+  p('pumpkin', 'Тыква', 'vegetable', 22, 1.0, 0.1, 4.4, 55, {
+    fiber: 2.0, wasteRatio: 0.3,
+    yields: { boiled: 0.9, baked: 0.8 },
+    measures: [volumeMeasure('glass', 0.6, 'стакан кубиками')],
+    packSizes: [1000], shelfLifeDays: 60, tags: ['vegan', 'gluten-free'],
+  }),
+  p('zucchini', 'Кабачок', 'vegetable', 24, 0.6, 0.3, 4.6, 120, {
+    fiber: 1.0, wasteRatio: 0.2,
+    yields: { fried: 0.6, stewed: 0.75 },
+    measures: [pieceMeasure(250, 'шт средний')],
+    packSizes: [1000], shelfLifeDays: 14, perishable: true, tags: ['vegan', 'gluten-free'],
+  }),
+  p('cabbage_sauer', 'Капуста квашеная', 'vegetable', 19, 1.8, 0.1, 3.2, 130, {
+    fiber: 2.2,
+    measures: [volumeMeasure('glass', 0.75)],
+    packSizes: [500, 1000], shelfLifeDays: 30, perishable: true, tags: ['vegan', 'gluten-free'],
+  }),
+  p('green_peas_canned', 'Горошек зелёный консерв.', 'vegetable', 55, 3.6, 0.2, 9.8, 210, {
+    fiber: 4.5,
+    measures: [packMeasure(400, 'банка 400 г'), volumeMeasure('tbsp', 1.0)],
+    packSizes: [400], shelfLifeDays: 365, tags: ['vegan', 'gluten-free'],
+  }),
+  p('pear', 'Груши', 'fruit', 42, 0.4, 0.3, 10.9, 220, {
+    fiber: 2.8, wasteRatio: 0.1,
+    measures: [pieceMeasure(170, 'шт средняя')],
+    packSizes: [1000], shelfLifeDays: 14, tags: ['vegan', 'gluten-free'],
+  }),
+  p('orange', 'Апельсины', 'fruit', 43, 0.9, 0.2, 8.1, 185, {
+    fiber: 2.2, wasteRatio: 0.3,
+    measures: [pieceMeasure(200, 'шт')],
+    packSizes: [1000], shelfLifeDays: 20, tags: ['vegan', 'gluten-free'],
+  }),
+  p('dried_apricots', 'Курага', 'fruit', 232, 5.2, 0.3, 51.0, 620, {
+    fiber: 18.0,
+    measures: [pieceMeasure(8, 'шт'), volumeMeasure('glass', 0.65)],
+    packSizes: [200, 500], shelfLifeDays: 180, tags: ['vegan', 'gluten-free'],
+  }),
+  p('sunflower_seeds', 'Семечки подсолнечника', 'nut', 601, 20.7, 52.9, 10.5, 340, {
+    fiber: 5.0, wasteRatio: 0.4,
+    measures: [volumeMeasure('tbsp', 0.7)],
+    packSizes: [200, 500], tags: ['vegan', 'gluten-free'],
+  }),
+  p('peanuts', 'Арахис', 'nut', 552, 26.3, 45.2, 9.9, 420, {
+    fiber: 8.1,
+    measures: [volumeMeasure('tbsp', 0.6), volumeMeasure('glass', 0.7)],
+    packSizes: [200, 500], tags: ['vegan', 'gluten-free'],
+  }),
+  p('honey', 'Мёд', 'sweet', 314, 0.8, 0.0, 80.3, 750, {
+    measures: [volumeMeasure('tsp', 1.4), volumeMeasure('tbsp', 1.4)],
+    packSizes: [250, 500], tags: ['vegetarian', 'condiment'],
+  }),
+  p('tomato_paste', 'Томатная паста', 'other', 82, 4.3, 0.5, 16.0, 290, {
+    fiber: 1.1,
+    measures: [volumeMeasure('tbsp', 1.6)],
+    packSizes: [250, 500], shelfLifeDays: 30, tags: ['vegan', 'gluten-free', 'condiment'],
+  }),
 ];
+
 
 /** Индекс по id для быстрого доступа. */
 export const PRODUCT_BY_ID: Record<string, Product> = Object.fromEntries(
