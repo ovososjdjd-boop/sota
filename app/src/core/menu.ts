@@ -494,12 +494,18 @@ function pickDishForMeal(
     const fitError = Math.abs(deficit - contribution) / Math.max(1, meal.targetKcal);
     let score = 1 - fitError;
 
-    // разнообразие: чем дольше блюдо не подавалось, тем лучше
+    // Разнообразие — главный критерий после попадания в калорийность.
+    // Исследования menu fatigue: приедание к 3-4 неделе — основная причина,
+    // по которой человек бросает приложение. Поэтому блюдо, которое ещё
+    // не подавалось, получает существенное преимущество, а каждая
+    // следующая подача заметно снижает шансы.
     if (served.length > 0) {
       const gap = Math.min(...served.map((d) => Math.abs(day.index - d)));
-      score += Math.min(gap / 7, 0.35);
+      score += Math.min(gap / 7, 0.3);
+      // штраф растёт с числом уже сделанных подач
+      score -= Math.min(served.length * 0.18, 0.9);
     } else {
-      score += 0.3;
+      score += 0.75;
     }
 
     // batch cooking: доесть готовое приятнее, чем варить заново

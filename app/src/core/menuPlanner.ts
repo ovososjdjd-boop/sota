@@ -125,10 +125,22 @@ function packagingPenaltyFor(stats: RecipeStats, typicalPortions: number): numbe
  * с тем, что физически исполнимо в фазе 2.
  */
 function maxPortionsFor(recipe: Recipe, days: number, eaters: number): number {
-  const servings = Math.max(1, Math.floor(days / MIN_REPEAT_GAP_DAYS));
-  // блюдо, пригодное и на обед, и на ужин, может появляться чаще
-  const slotsFactor = recipe.slots.length >= 2 ? 1.4 : 1;
-  return Math.max(1, Math.ceil(servings * slotsFactor * eaters));
+  // Сколько РАЗ блюдо появится в меню за период. Правило неповторения
+  // допускает days/3, но этого мало: на месяце получалось 10 подач
+  // одного блюда, а оладьи попадали в меню 14 раз.
+  //
+  // Исследование (Nutrola, menu fatigue): приедание начинается на 3-4 неделе
+  // и к 6-й становится главной причиной отказа от приложения. Планы
+  // с разнообразием удерживают 78% пользователей против 52%.
+  //
+  // Ограничиваем: не чаще раза в 5 дней для основных блюд.
+  // На коротком периоде жёсткий лимит делает план недостижимым:
+  // при 7 днях «раз в 5 дней» даёт 1-2 подачи, и еды физически не хватает.
+  // Ограничение имеет смысл там, где приедание реально наступает —
+  // от двух недель и дальше.
+  const gap = days >= 14 ? (recipe.role === 'snack' || recipe.role === 'drink' ? 4 : 5) : MIN_REPEAT_GAP_DAYS;
+  const servings = Math.max(2, Math.round(days / gap));
+  return Math.max(1, servings * eaters);
 }
 
 function buildDishModel(
@@ -410,7 +422,10 @@ function buildDishModel(
   // Без этого солвер набирал 60 порций самого дешёвого блюда и обходился
   // 22 позициями из 51 — разложить такое в расписание невозможно,
   // и у больших семей оставались пустые приёмы.
-  const maxDishShare = 0.12;
+  // Доля одного блюда в энергии рациона. Было 12% — при 30 днях это
+  // позволяло одному блюду закрывать почти четверть месяца.
+  // Чем длиннее период, тем меньше должна быть доля.
+  const maxDishShare = days >= 21 ? 0.05 : days >= 12 ? 0.08 : 0.12;
   candidates.forEach((c, i) => {
     const k = c.stats.nutrients.kcal;
     if (k > 0) {
