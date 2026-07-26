@@ -239,10 +239,23 @@ export function ShoppingScreen({ store }: { store: Store }) {
 
       <div className="space-y-4 px-4 pt-4">
         {menu?.status === 'optimal' && totalPacksCost > menu.totalCost * 1.08 && (
-          <Note tone="info">
-            В магазине выйдет дороже расчёта: продукты продаются упаковками.
-            Излишек примерно на {money(leftoverValue)} останется на следующий период —
-            это не потеря, а запас.
+          <Note tone={totalPacksCost > menu.totalCost * 1.6 ? 'warn' : 'info'}>
+            {totalPacksCost > menu.totalCost * 1.6 ? (
+              <>
+                Еды здесь на {money(menu.totalCost)}, но продукты продаются
+                упаковками — в кассе выйдет {money(totalPacksCost)}. Излишек
+                на {money(leftoverValue)} останется дома и пойдёт в дело позже.
+                <br />
+                <b>На {state.days === 7 ? 'двух неделях или месяце' : 'месяце'} переплата
+                будет заметно меньше</b> — крупы и масло расходуются полностью.
+              </>
+            ) : (
+              <>
+                В магазине выйдет дороже расчёта: продукты продаются упаковками.
+                Излишек примерно на {money(leftoverValue)} останется на следующий
+                период — это не потеря, а запас.
+              </>
+            )}
           </Note>
         )}
 
