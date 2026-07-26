@@ -3,6 +3,8 @@ import { Card, Note, Spinner, Button } from '../ui/primitives';
 import { cx } from '../ui/cx';
 import { moneyPlain } from '../core/format';
 import { MEAL_LABEL, ROLE_LABEL, type MealSlot } from '../core/recipes';
+import { findAlternatives, type SwapCandidate } from '../core/swap';
+import { RECIPES } from '../data/recipes';
 import type { PlannedDay, PlannedDish } from '../core/menu';
 import type { Store } from '../state/store';
 
@@ -21,12 +23,22 @@ const SLOT_ICON: Record<MealSlot, string> = {
   dinner: '☾',
 };
 
-function DishRow({ dish, eaters }: { dish: PlannedDish; eaters: number }) {
+function DishRow({
+  dish,
+  eaters,
+  onSwap,
+}: {
+  dish: PlannedDish;
+  eaters: number;
+  onSwap?: () => void;
+}) {
   const perPerson = dish.portions / Math.max(1, eaters);
   const kcal = dish.stats.nutrients.kcal * dish.portions;
 
   return (
-    <div className="flex items-start gap-2.5 py-2">
+    <button
+      onClick={onSwap}
+      className="flex w-full items-start gap-2.5 py-2 text-left transition-opacity active:opacity-60">
       <div
         className={cx(
           'mt-1 h-1.5 w-1.5 shrink-0 rounded-full',
@@ -51,11 +63,90 @@ function DishRow({ dish, eaters }: { dish: PlannedDish; eaters: number }) {
       <div className="tnum shrink-0 text-[12px] text-surface-400">
         {Math.round(kcal)}
       </div>
+    </button>
+  );
+}
+
+/** Шторка выбора замены блюда. */
+function SwapSheet({
+  dish,
+  alternatives,
+  onPick,
+  onClose,
+}: {
+  dish: PlannedDish;
+  alternatives: SwapCandidate[];
+  onPick: (c: SwapCandidate) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative max-h-[80vh] w-full animate-rise overflow-y-auto rounded-t-3xl bg-white p-5 shadow-lift dark:bg-surface-900"
+        style={{ paddingBottom: 'calc(2rem + var(--safe-bottom))' }}
+      >
+        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-surface-300 dark:bg-surface-700" />
+        <h3 className="text-lg font-bold text-surface-900 dark:text-white">
+          Заменить блюдо
+        </h3>
+        <p className="mt-0.5 text-sm text-surface-400">
+          Сейчас: {dish.recipe.name} · {Math.round(dish.stats.nutrients.kcal)} ккал
+        </p>
+
+        {alternatives.length === 0 ? (
+          <p className="py-8 text-center text-sm text-surface-400">
+            Подходящих замен не нашлось
+          </p>
+        ) : (
+          <div className="mt-4 space-y-2">
+            {alternatives.map((alt) => (
+              <button
+                key={alt.stats.recipe.id}
+                onClick={() => onPick(alt)}
+                className="flex w-full items-center gap-3 rounded-2xl bg-surface-50 px-4 py-3 text-left transition-transform active:scale-[0.99] dark:bg-surface-800"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="text-[15px] font-semibold text-surface-900 dark:text-white">
+                    {alt.stats.recipe.name}
+                  </div>
+                  <div className="mt-0.5 text-[12px] text-surface-400">
+                    {ROLE_LABEL[alt.stats.recipe.role]} · {alt.stats.recipe.minutes} мин
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="tnum text-[13px] font-semibold text-surface-900 dark:text-white">
+                    {Math.round(alt.stats.nutrients.kcal)} ккал
+                  </div>
+                  <div
+                    className={cx(
+                      'tnum text-[11px]',
+                      alt.costDelta < 0 ? 'text-brand-600' : 'text-surface-400',
+                    )}
+                  >
+                    {alt.costDelta >= 0 ? '+' : ''}
+                    {Math.round(alt.costDelta)} ₽
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function DayCard({ day, eaters }: { day: PlannedDay; eaters: number }) {
+function DayCard({
+  day,
+  eaters,
+  onSwap,
+}: {
+  day: PlannedDay;
+  eaters: number;
+  onSwap: (dish: PlannedDish, slot: MealSlot) => void;
+}) {
   const fill = day.targetKcal > 0 ? day.nutrients.kcal / day.targetKcal : 0;
   const tone = Math.abs(fill - 1) < 0.12 ? 'good' : Math.abs(fill - 1) < 0.25 ? 'warn' : 'bad';
   const toneClass = {
@@ -109,7 +200,12 @@ function DayCard({ day, eaters }: { day: PlannedDay; eaters: number }) {
             ) : (
               <div className="divide-y divide-surface-100 dark:divide-surface-800">
                 {meal.dishes.map((dish, i) => (
-                  <DishRow key={`${dish.recipe.id}-${i}`} dish={dish} eaters={eaters} />
+                  <DishRow
+                    key={`${dish.recipe.id}-${i}`}
+                    dish={dish}
+                    eaters={eaters}
+                    onSwap={() => onSwap(dish, meal.slot)}
+                  />
                 ))}
               </div>
             )}
@@ -127,8 +223,26 @@ function DayCard({ day, eaters }: { day: PlannedDay; eaters: number }) {
 }
 
 export function MenuScreen({ store }: { store: Store }) {
-  const { state, menu, calculatingMenu, recalculateMenu } = store;
+  const { state, menu, calculatingMenu, recalculateMenu, swapDish } = store;
   const [activeDay, setActiveDay] = useState(0);
+  const [swapping, setSwapping] = useState<{
+    dish: PlannedDish;
+    slot: MealSlot;
+  } | null>(null);
+
+  // Альтернативы считаются на лету — база небольшая, задержки нет
+  const alternatives = useMemo<SwapCandidate[]>(() => {
+    if (!swapping || !menu || menu.status !== 'optimal') return [];
+    return findAlternatives({
+      schedule: menu.schedule,
+      dayIndex: activeDay,
+      slot: swapping.slot,
+      current: swapping.dish.recipe,
+      recipes: RECIPES,
+      excluded: new Set(state.excluded),
+      dietTags: [...new Set(state.eaters.flatMap((e) => e.dietTags))],
+    });
+  }, [swapping, menu, activeDay, state.excluded, state.eaters]);
 
   useEffect(() => {
     if (!menu && !calculatingMenu) void recalculateMenu();
@@ -241,15 +355,33 @@ export function MenuScreen({ store }: { store: Store }) {
         ))}
 
         {days[activeDay] && (
-          <DayCard day={days[activeDay]} eaters={state.eaters.length} />
+          <DayCard
+            day={days[activeDay]}
+            eaters={state.eaters.length}
+            onSwap={(dish, slot) => setSwapping({ dish, slot })}
+          />
         )}
 
         <p className="px-2 pt-1 text-center text-[11px] leading-relaxed text-surface-400">
           {totals?.dishes} разных блюд · рассчитано за {menu.solveTimeMs} мс
           <br />
           Точка слева — готовить, серая — разогреть готовое
+          <br />
+          Нажмите на блюдо, чтобы заменить его
         </p>
       </div>
+
+      {swapping && (
+        <SwapSheet
+          dish={swapping.dish}
+          alternatives={alternatives}
+          onClose={() => setSwapping(null)}
+          onPick={(alt) => {
+            swapDish(activeDay, swapping.slot, swapping.dish.recipe.id, alt.stats);
+            setSwapping(null);
+          }}
+        />
+      )}
     </div>
   );
 }

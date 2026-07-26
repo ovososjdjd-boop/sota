@@ -8,6 +8,8 @@ import type { EaterProfile, PlanResult, Product } from '../core/types';
 import { PRODUCTS } from '../data/products';
 import { optimizeBasket } from '../core/optimizer';
 import { planMenu, type MenuResult } from '../core/menuPlanner';
+import { applySwap, recalcProducts, scheduleCost } from '../core/swap';
+import type { RecipeStats } from '../core/recipes';
 import { RECIPES } from '../data/recipes';
 
 const STORAGE_KEY = 'ration.state.v1';
@@ -123,6 +125,33 @@ export function useAppState() {
     }
   }, [state.budget, state.days, state.eaters, state.excluded]);
 
+  /**
+   * Замена блюда в меню. Пересчитываем только затронутое —
+   * полный перезапуск оптимизатора здесь не нужен и был бы медленным.
+   */
+  const swapDish = useCallback(
+    (dayIndex: number, slot: string, fromRecipeId: string, to: RecipeStats) => {
+      setMenu((prev) => {
+        if (!prev || prev.status !== 'optimal') return prev;
+        const schedule = applySwap(prev.schedule, dayIndex, slot, fromRecipeId, to);
+        const products = recalcProducts(schedule);
+        const totalCost = scheduleCost(schedule);
+
+        const actual = { kcal: 0, protein: 0, fat: 0, carbs: 0, fiber: 0 };
+        for (const day of schedule.days) {
+          actual.kcal += day.nutrients.kcal;
+          actual.protein += day.nutrients.protein;
+          actual.fat += day.nutrients.fat;
+          actual.carbs += day.nutrients.carbs;
+          actual.fiber += day.nutrients.fiber ?? 0;
+        }
+
+        return { ...prev, schedule, products, totalCost, actual };
+      });
+    },
+    [],
+  );
+
   const update = useCallback((patch: Partial<AppState>) => {
     setState((s) => ({ ...s, ...patch }));
     // меню зависит от бюджета и состава семьи — сбрасываем кэш
@@ -185,6 +214,7 @@ export function useAppState() {
     menu,
     calculatingMenu,
     recalculateMenu,
+    swapDish,
     products,
     update,
     setEater,
