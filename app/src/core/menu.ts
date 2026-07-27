@@ -191,7 +191,12 @@ export function buildSchedule(
         for (const day of schedule) {
           for (const meal of day.meals) {
             const deficit = meal.targetKcal - meal.nutrients.kcal;
-            if (deficit > meal.targetKcal * 0.12) {
+            // Пустой основной приём берём в работу ВСЕГДА, даже если
+            // формально дефицит мал. Замер показал день с пустым
+            // завтраком при 26 порциях в запасе: приём считался
+            // «почти сытым» по калориям соседей и выпадал из очереди.
+            const isEmptyMain = meal.dishes.length === 0 && meal.slot !== 'snack';
+            if (isEmptyMain || deficit > meal.targetKcal * 0.12) {
               slots.push({ day, meal, deficit });
             }
           }
@@ -225,13 +230,27 @@ export function buildSchedule(
             return (order[a.meal.slot] ?? 9) - (order[b.meal.slot] ?? 9);
           });
         } else {
-          // Дополнения — по относительному дефициту: самый «голодный»
-          // приём получает еду первым.
-          slots.sort(
-            (a, b) =>
+          // Дополнения — сначала в самые ГОЛОДНЫЕ ДНИ, потом уже
+          // по дефициту приёма внутри дня.
+          //
+          // Раньше сортировка смотрела только на приём, и получался
+          // перекос по времени: первая половина месяца недобирала
+          // (1266-2200 ккал), вторая переедала (2900-3542). Приём
+          // на 50% в сытом дне обслуживался раньше, чем такой же
+          // в голодном, и разрыв закреплялся.
+          slots.sort((a, b) => {
+            const dayA = a.day.nutrients.kcal / Math.max(1, a.day.targetKcal);
+            const dayB = b.day.nutrients.kcal / Math.max(1, b.day.targetKcal);
+            // ступени по 10%: иначе раскладка мечется между днями
+            // и рвёт batch cooking
+            const stepA = Math.floor(dayA * 10);
+            const stepB = Math.floor(dayB * 10);
+            if (stepA !== stepB) return stepA - stepB;
+            return (
               b.deficit / Math.max(1, b.meal.targetKcal) -
-              a.deficit / Math.max(1, a.meal.targetKcal),
-          );
+              a.deficit / Math.max(1, a.meal.targetKcal)
+            );
+          });
         }
 
         for (const { day, meal } of slots) {
@@ -346,10 +365,60 @@ export function buildSchedule(
     }
   }
 
+  // ── ПРИВЫЧКИ: ДОСТАВЛЯЕМ В КАЖДЫЙ ДЕНЬ ──
+  //
+  // Отзыв: «кофе — каждый день, без вариантов», а два дня из тридцати
+  // оставались без него. Заказ был верным (30 порций из 30), но общий
+  // цикл раскладки берёт только приёмы с дефицитом больше 12%: если
+  // завтрак и перекус уже наполнены, чашка кофе просто некуда не идёт.
+  //
+  // Привычка — не «добор калорий», а обещание пользователю. Поэтому
+  // у неё отдельный проход: проходим по дням, где привычки ещё нет,
+  // и ставим её, не глядя на наполненность приёма.
+  for (const entry of remaining.values()) {
+    if (entry.daily !== true || entry.portions <= 0) continue;
+    const recipe = entry.stats.recipe;
+    const served = servedDays.get(recipe.id) ?? [];
+    for (const day of schedule) {
+      if (entry.portions <= 0) break;
+      if (served.includes(day.index)) continue;
+      // ищем приём, где блюдо уместно; перекус предпочтительнее
+      const target =
+        day.meals.find(
+          (m) => recipe.slots.includes(m.slot) && m.slot === 'snack',
+        ) ?? day.meals.find((m) => recipe.slots.includes(m.slot));
+      if (!target) continue;
+      if (target.dishes.some((x) => x.recipe.id === recipe.id)) continue;
+
+      const serve = Math.min(entry.portions, eaters);
+      target.dishes.push({ recipe, stats: entry.stats, portions: serve, cooked: true });
+      addTo(target.nutrients, entry.stats.nutrients, serve);
+      addTo(day.nutrients, entry.stats.nutrients, serve);
+      target.minutes += recipe.minutes;
+      day.minutes += recipe.minutes;
+      served.push(day.index);
+      servedDays.set(recipe.id, served);
+      entry.portions -= serve;
+    }
+    if (entry.portions <= 0) remaining.delete(recipe.id);
+  }
+
   // Финальный проход: остатки распределяем по самым «голодным» дням.
   // Здесь уже не заботимся о равномерности подачи — её обеспечили
   // предыдущие проходы. Задача одна: чтобы еда не пропала.
   sweepRemainder(schedule, remaining, servedDays, eaters, maxMinutesPerDay);
+
+  // ── ВЫРАВНИВАНИЕ ДНЕЙ ПЕРЕНОСОМ ПОРЦИЙ ──
+  //
+  // Отзыв: «то 1583 ккал, то 3090 при цели 2506. За месяц сходится,
+  // но я живу днём». Суммарно еды ровно столько, сколько нужно
+  // (заказ 96-101% нормы) — проблема в её распределении по дням.
+  //
+  // Все предыдущие правки меняли ПОРЯДОК размещения и почти ничего
+  // не дали: жадный алгоритм принимает решения, не зная будущего.
+  // Поэтому последний шаг — прямой перенос: берём лишнюю порцию
+  // из самого сытого дня и отдаём самому голодному.
+  balanceDays(schedule, eaters);
 
   const unplaced = [...remaining.values()]
     .filter((x) => x.portions > 0)
@@ -361,6 +430,77 @@ export function buildSchedule(
   }
 
   return { days: schedule, unplaced, notes };
+}
+
+/**
+ * Выравнивание калорийности по дням переносом порций.
+ *
+ * Жадная раскладка не умеет смотреть в будущее: она принимает решение
+ * по текущему состоянию и закрепляет перекос. Замер показывал первую
+ * половину месяца на 1300-2000 ккал и вторую на 2900-3500 при цели 2506.
+ *
+ * Здесь мы уже знаем весь план целиком, поэтому можем просто
+ * переставить порции: из дня, где еды много, в день, где её мало.
+ * Переносим только то, что не нарушает правил — блюдо не должно
+ * оказаться дважды в одном дне и не должно уехать за срок хранения.
+ */
+function balanceDays(schedule: PlannedDay[], eaters: number): void {
+  const fill = (d: PlannedDay) => d.nutrients.kcal / Math.max(1, d.targetKcal);
+
+  for (let iter = 0; iter < 60; iter++) {
+    const sorted = [...schedule].sort((a, b) => fill(a) - fill(b));
+    const hungry = sorted[0];
+    const full = sorted[sorted.length - 1];
+    // разрыв меньше 25 процентных пунктов — уже приемлемо
+    if (fill(full) - fill(hungry) < 0.25) break;
+
+    let moved = false;
+    // ищем в сытом дне порцию, которая поместится в голодный
+    for (const meal of full.meals) {
+      for (let k = meal.dishes.length - 1; k >= 0; k--) {
+        const dish = meal.dishes[k];
+        // привычки не двигаем: «кофе каждый день» — обещание
+        if (dish.recipe.slots.length === 0) continue;
+
+        const target = hungry.meals.find(
+          (m) => m.slot === meal.slot || dish.recipe.slots.includes(m.slot),
+        );
+        if (!target) continue;
+        // блюдо уже есть в этом дне — перенос создаст дубль
+        if (hungry.meals.some((m) => m.dishes.some((x) => x.recipe.id === dish.recipe.id))) {
+          continue;
+        }
+        // в сытом дне это единственное блюдо приёма — не оголяем приём
+        if (meal.dishes.length === 1 && meal.slot !== 'snack') continue;
+
+        const kcal = dish.stats.nutrients.kcal * dish.portions;
+        // перенос не должен перевернуть картину: голодный день
+        // не обязан стать сытнее донора
+        if (hungry.nutrients.kcal + kcal > full.nutrients.kcal - kcal) continue;
+
+        meal.dishes.splice(k, 1);
+        addTo(meal.nutrients, dish.stats.nutrients, -dish.portions);
+        addTo(full.nutrients, dish.stats.nutrients, -dish.portions);
+        if (dish.cooked) {
+          meal.minutes = Math.max(0, meal.minutes - dish.recipe.minutes);
+          full.minutes = Math.max(0, full.minutes - dish.recipe.minutes);
+        }
+
+        target.dishes.push({ ...dish });
+        addTo(target.nutrients, dish.stats.nutrients, dish.portions);
+        addTo(hungry.nutrients, dish.stats.nutrients, dish.portions);
+        if (dish.cooked) {
+          target.minutes += dish.recipe.minutes;
+          hungry.minutes += dish.recipe.minutes;
+        }
+        moved = true;
+        break;
+      }
+      if (moved) break;
+    }
+    if (!moved) break;
+  }
+  void eaters;
 }
 
 /**
@@ -438,7 +578,16 @@ function sweepRemainder(
           if (meal.nutrients.kcal > meal.targetKcal * stage.fillTo) continue;
           if (meal.dishes.length >= stage.maxDishes) continue;
 
-          for (const entry of remaining.values()) {
+          // Блюда-привычки («кофе каждый день») разбираем ПЕРВЫМИ.
+          //
+          // Отзыв: «кофе — каждый день, без вариантов», а в прогоне
+          // появлялись дни без кофе. Заказ был верным, теряла раскладка:
+          // уборщик шёл по remaining в произвольном порядке, и место
+          // в перекусе успевало занять что-то другое.
+          const ordered = [...remaining.values()].sort(
+            (a, b) => Number(b.daily === true) - Number(a.daily === true),
+          );
+          for (const entry of ordered) {
             if (entry.portions <= 0) continue;
             const { recipe } = entry.stats;
             if (!recipe.slots.includes(meal.slot)) continue;
@@ -692,8 +841,17 @@ function pickDishForMeal(
     const { recipe } = entry.stats;
 
     if (!recipe.slots.includes(meal.slot)) continue;
-    if (coreOnly && !coreRoles.includes(recipe.role)) continue;
-    if (meal.dishes.length >= relax.maxDishes) continue;
+    // Привычки не подчиняются стадии «ядро» и лимиту блюд в приёме.
+    //
+    // Отзыв: «кофе — каждый день, без вариантов», а два дня из тридцати
+    // оставались без него. Заказ был верным (30 порций), но на стадии
+    // «ядро» напиток отсекался как не-основа, а к стадии «дополнения»
+    // перекус уже занимали другие блюда — и чашке не оставалось места.
+    const dailyHabit = entry.daily === true;
+    if (!dailyHabit) {
+      if (coreOnly && !coreRoles.includes(recipe.role)) continue;
+      if (meal.dishes.length >= relax.maxDishes) continue;
+    }
     if (meal.dishes.some((x) => x.recipe.id === recipe.id)) continue;
 
     // Правило неповторения (СанПиН). Не действует для блюд-привычек:
@@ -722,7 +880,15 @@ function pickDishForMeal(
       // одного блюда на весь период.
       const canFinishLeftovers =
         recipe.keepsDays > 0 && wasCookedRecently(schedule, recipe, day.index);
-      if (!canFinishLeftovers && served.some((d) => Math.abs(day.index - d) < relax.repeatGap)) {
+      // Пустой основной приём важнее правила неповторения.
+      //
+      // Замер: день с ПУСТЫМ завтраком при шести подходящих блюдах
+      // в запасе — все они попадали в окно неповторения. Человек
+      // получал день на 1182 ккал и утро без еды. Повторить кашу
+      // через два дня вместо трёх — меньшее зло, чем пустой завтрак.
+      const mealIsEmpty = meal.dishes.length === 0 && meal.slot !== 'snack';
+      const gapNeeded = mealIsEmpty ? Math.min(2, relax.repeatGap) : relax.repeatGap;
+      if (!canFinishLeftovers && served.some((d) => Math.abs(day.index - d) < gapNeeded)) {
         continue;
       }
       // НО НЕ ДВАЖДЫ ЗА ОДИН ДЕНЬ.
@@ -776,8 +942,14 @@ function pickDishForMeal(
       continue;
     }
 
-    // структура: дополнения не заменяют основу
-    if (!coreOnly && coreRoles.length > 0) {
+    // Структура: дополнения не заменяют основу.
+    //
+    // На поздних проходах правило снимается. Иначе гарниры и каши,
+    // которые солвер заказал сверх нормы, вообще некуда поставить:
+    // приём без основы их не принимает, а основы уже разошлись.
+    // Замер: заказ 105% нормы, на тарелке 91% — не размещались
+    // именно гарниры (картофель, рис, булгур).
+    if (!coreOnly && coreRoles.length > 0 && relax.repeatGap > 1) {
       const hasCore = meal.dishes.some((x) => coreRoles.includes(x.recipe.role));
       if (!hasCore && !coreRoles.includes(recipe.role)) continue;
     }
@@ -801,7 +973,15 @@ function pickDishForMeal(
 
     const contribution = entry.stats.nutrients.kcal * eaters;
     const wouldBe = meal.nutrients.kcal + contribution;
-    if (wouldBe > meal.targetKcal * relax.overfillFactor) continue;
+    // Привычки («кофе каждый день») проходят мимо лимита калорий приёма.
+    //
+    // Отзыв: «кофе — каждый день, без вариантов», а в прогоне два дня
+    // оставались без него. Заказ был верным (30 порций), но чашка
+    // на 84 ккал не влезала в уже наполненный перекус и отбрасывалась
+    // здесь — до того, как ниже сработает приоритет привычек.
+    // Человек всё равно выпьет этот кофе, вопрос только в том,
+    // покажем мы его в плане или сделаем вид, что его нет.
+    if (!entry.daily && wouldBe > meal.targetKcal * relax.overfillFactor) continue;
 
     const deficit = meal.targetKcal - meal.nutrients.kcal;
     const fitError = Math.abs(deficit - contribution) / Math.max(1, meal.targetKcal);
