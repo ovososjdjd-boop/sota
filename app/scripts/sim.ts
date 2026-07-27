@@ -13,6 +13,7 @@
 
 import { planMenu, type MenuResult } from '../src/core/menuPlanner';
 import { RECIPES } from '../src/data/recipes';
+import { planWaves } from '../src/core/waves';
 import { PRODUCT_BY_ID } from '../src/data/products';
 import { emptyPreferences, type Preferences } from '../src/core/preferences';
 import { makeEaterLike } from './simProfile';
@@ -144,16 +145,28 @@ export function report(menu: MenuResult, budget: number, days: number, eaters: n
       };
     })
     .filter(Boolean) as { name: string; grams: number; shelf: number; perishable: boolean; cost: number }[];
-  const risky = lines
-    .filter((l) => l.shelf < days && l.grams > 1500)
-    .sort((x, y) => y.grams - x.grams);
+  // ХРАНЕНИЕ СЧИТАЕМ ПО ВОЛНАМ ЗАКУПКИ, А НЕ ЗА ВЕСЬ ПЕРИОД.
+  //
+  // Здесь была ЛОЖНАЯ ТРЕВОГА: скрипт складывал продукт за все 30 дней
+  // и пугал «Фарш 1.6 кг при сроке 2 дня». На деле человек идёт
+  // в магазин пять раз, и за один поход берёт 300-400 г. Движок это
+  // умеет (core/waves.ts), а диагностика — нет; чуть не бросились
+  // чинить исправное.
+  const waves = planWaves(menu.schedule);
+  const risky = waves
+    .flatMap((w) => w.lines.map((l) => ({ w, l })))
+    .filter(({ l }) => !l.fitsShelfLife);
   if (risky.length) {
-    console.log('ХРАНЕНИЕ (позиции больше 1.5 кг со сроком меньше периода)');
-    for (const l of risky.slice(0, 6)) {
+    console.log('ХРАНЕНИЕ (не хватает срока внутри одного похода в магазин)');
+    for (const { w, l } of risky.slice(0, 6)) {
       console.log(
-        `   ${l.name.padEnd(22)} ${(l.grams / 1000).toFixed(1)} кг, срок ${l.shelf} дн`,
+        `   поход ${w.index + 1}: ${l.product.name.padEnd(22)} ` +
+          `${(l.buyGrams / 1000).toFixed(1)} кг, срок ${l.product.shelfLifeDays} дн ` +
+          `→ совет: ${l.advice === 'freeze' ? 'заморозить' : 'докупить позже'}`,
       );
     }
+  } else {
+    console.log('ХРАНЕНИЕ  всё укладывается в сроки внутри походов в магазин');
   }
 
   console.log('ПОДСКАЗКИ');
