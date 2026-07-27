@@ -69,11 +69,39 @@ import {
 import { PRODUCT_BY_ID } from '../data/products';
 import { grossFromNet, packsNeeded } from './measures';
 
+/**
+ * Разумный потолок готовки, если человек ничего не указал, мин/день.
+ *
+ * Отсутствие настройки не значит «времени бесконечно». Без лимита
+ * прогон давал 111 минут в день и худший день 225 — ровно тот дефект,
+ * на который жаловался пользователь в первом отзыве, просто спрятанный
+ * за умолчанием.
+ *
+ * Значение подобрано замером (scripts/limitsweep.ts), компромисс
+ * между «успею приготовить» и «хватит калорий»:
+ *    60 мин → 2224-2374 ккал (недобор до 11%)
+ *    90 мин → 2359-2555 ккал, худший день 103 мин
+ *   без лимита → 2599-2663 ккал, но худший день 225 мин
+ * Берём 90: норма держится, а четырёхчасовых дней не бывает.
+ * Человек всегда может снять ограничение явно — «Не важно» в настройках.
+ */
+export const DEFAULT_COOKING_LIMIT = 90;
+
 export interface MenuRequest {
   budget: number;
   days: number;
   eaters: EaterProfile[];
-  /** Максимум времени готовки в день, мин */
+  /**
+   * Максимум времени готовки в день, мин.
+   *
+   * Не задан — берётся разумный потолок (см. DEFAULT_COOKING_LIMIT),
+   * а НЕ «сколько угодно». Отсутствие настройки не значит, что у
+   * человека бесконечно времени: прогон без лимита давал 111 минут
+   * в день и худший день 225 — тот же дефект, на который жаловался
+   * пользователь в первом отзыве, просто спрятанный за умолчанием.
+   *
+   * Явный ноль означает «не важно» — это осознанный выбор человека.
+   */
   maxCookingMinutes?: number;
   /** Что пользователь любит и что не хочет видеть */
   preferences?: Preferences;
@@ -1179,6 +1207,19 @@ export async function planMenu(
   // у кого нет духовки, — значит сломать план на первом же дне.
   const equipment = request.equipment ?? DEFAULT_EQUIPMENT;
 
+  // Эффективный лимит времени: явный ноль — «не важно», отсутствие
+  // настройки — разумный потолок, а не бесконечность.
+  //
+  // Для семьи потолок выше: готовка на четверых занимает больше времени,
+  // чем на одного, — та же кастрюля, но больше нарезки и больше блюд
+  // в день. Прогон с жёсткими 90 минутами на семью из четырёх дал
+  // пустые приёмы пищи: еду было некогда приготовить.
+  // Растём не пропорционально едокам (кастрюля одна), а мягко.
+  const cookingLimit =
+    request.maxCookingMinutes === undefined
+      ? Math.round(DEFAULT_COOKING_LIMIT * (1 + (request.eaters.length - 1) * 0.25))
+      : request.maxCookingMinutes;
+
   // ── подготовка кандидатов ──
   const candidates: DishCandidate[] = [];
   for (const recipe of recipes) {
@@ -1286,7 +1327,7 @@ export async function planMenu(
     request.budget,
     personDays,
     false,
-    request.maxCookingMinutes,
+    cookingLimit,
     request.days,
       request.eaters.length,
   );
@@ -1397,7 +1438,7 @@ export async function planMenu(
     request.budget,
     personDays,
     true,
-    request.maxCookingMinutes,
+    cookingLimit,
     request.days,
     request.eaters.length,
     1,
@@ -1538,7 +1579,7 @@ export async function planMenu(
     request.days,
     request.eaters.length,
     dailyKcal,
-    request.maxCookingMinutes,
+    cookingLimit,
   );
 
   /**
@@ -1619,7 +1660,7 @@ export async function planMenu(
         request.budget,
         personDays,
         true,
-        request.maxCookingMinutes,
+        cookingLimit,
         request.days,
         request.eaters.length,
         slack,
@@ -1655,7 +1696,7 @@ export async function planMenu(
       request.days,
       request.eaters.length,
       dailyKcal,
-      request.maxCookingMinutes,
+      cookingLimit,
     );
 
     // принимаем итерацию, только если расписание стало полнее по еде
@@ -1836,7 +1877,7 @@ function findMinBudget(
       mid,
       personDays,
       false,
-      request.maxCookingMinutes,
+      request.maxCookingMinutes ?? DEFAULT_COOKING_LIMIT,
       request.days,
       request.eaters.length,
     );

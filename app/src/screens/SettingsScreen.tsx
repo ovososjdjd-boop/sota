@@ -333,22 +333,39 @@ export function SettingsScreen({ store }: { store: Store }) {
           Приложение подберёт блюда попроще и чаще будет предлагать
           разогреть готовое
         </p>
+        {/*
+          Значение по умолчанию — 1.5 часа, а не «не важно».
+          Без лимита меню давало 111 минут в день и худший день 225:
+          тот же дефект, на который жаловался пользователь, просто
+          спрятанный за отсутствием настройки. «Не важно» осталось,
+          но теперь это осознанный выбор человека, а не умолчание.
+        */}
         <Segmented
-          value={state.maxCookingMinutes ?? 0}
+          value={state.maxCookingMinutes ?? 90}
           onChange={(v) => {
-            update({ maxCookingMinutes: v || undefined });
+            update({ maxCookingMinutes: v });
             setTimeout(() => void recalculateMenu(), 30);
           }}
           options={[
+            { value: 40, label: '40 мин' },
             { value: 60, label: '1 час' },
             { value: 90, label: '1.5 часа' },
             { value: 0, label: 'Не важно' },
           ]}
         />
-        {state.maxCookingMinutes === 60 && (
+        {(state.maxCookingMinutes === 60 || state.maxCookingMinutes === 40) && (
           <p className="mt-2.5 text-[12px] leading-snug text-amber-700 dark:text-amber-400">
             При таком лимите часть приёмов пищи станет проще: бутерброды,
             творог, фрукты. Полноценные горячие блюда требуют времени.
+            {state.equipment.includes('multicooker')
+              ? ' Мультиварка помогает — она готовит без вашего участия.'
+              : ' Мультиварка сильно помогла бы: она готовит сама.'}
+          </p>
+        )}
+        {state.maxCookingMinutes === 0 && (
+          <p className="mt-2.5 text-[12px] leading-snug text-surface-400">
+            Без ограничения меню может занимать до двух часов в день —
+            зато будет самым разнообразным и полным по норме.
           </p>
         )}
       </Card>
