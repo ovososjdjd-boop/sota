@@ -112,10 +112,23 @@ export function planWaves(
   const carried: Record<string, number> = { ...pantry };
   const waves: ShoppingWave[] = [];
 
+  // Оценка полной стоимости плана — нужна, чтобы понять, какая доля
+  // приходится на один поход. Считаем грубо, по нетто: точность здесь
+  // не важна, важен порядок величины.
+  let totalPlanCost = 0;
+  for (const waveNeed of needByWave) {
+    for (const [productId, grams] of Object.entries(waveNeed)) {
+      const product = products[productId];
+      if (product) totalPlanCost += (grossFromNet(product, grams) / 1000) * product.pricePerKg;
+    }
+  }
+
   for (let w = 0; w < waveCount; w++) {
     const dayIndex = w * waveDays;
     const coversDays = Math.min(waveDays, totalDays - dayIndex);
     const lines: WaveLine[] = [];
+    // сколько уже набрано в этот поход — для контроля нагрузки
+    let runningCost = 0;
 
     for (const [productId, rawNeed] of Object.entries(needByWave[w])) {
       const product = products[productId];
@@ -146,12 +159,58 @@ export function planWaves(
       // нескольких процентов на крупной фасовке.
       const daysLeft = totalDays - dayIndex;
       const horizonDays = Math.min(daysLeft, product.shelfLifeDays);
-      const wavesAhead =
-        product.perishable || horizonDays < waveDays * 2 ? 0 : 1;
+      let wavesAhead = product.perishable || horizonDays < waveDays * 2 ? 0 : 1;
+
+      // РАВНОМЕРНАЯ НАГРУЗКА НА ПЕРВЫЙ ПОХОД.
+      //
+      // Отзыв: «первый поход 6 819 ₽ и 56 позиций против 1-2 тысяч
+      // в остальные. Я это физически не унесу». Ограничение запаса
+      // одной волной не помогло: в первый заход всё равно валится
+      // всё непортящееся сразу — крупы, масла, специи, консервы.
+      //
+      // Если поход уже набрал больше своей доли бюджета, перестаём
+      // брать впрок: пусть эти позиции купятся в следующий раз.
+      // Экономия на крупной фасовке не стоит тележки с горкой.
+      if (w === 0 && waveCount > 1) {
+        const fairShare = (totalPlanCost / waveCount) * 1.6;
+        if (runningCost > fairShare) wavesAhead = 0;
+      }
 
       let target = need;
       for (let k = w + 1; k <= w + wavesAhead && k < waveCount; k++) {
         target += needByWave[k][productId] ?? 0;
+      }
+
+      // ДОРОГОЕ НЕ БЕРЁМ ВПРОК В ПЕРВЫЙ ЖЕ ПОХОД.
+      //
+      // Отзыв: «первый поход 6 819 ₽, я это не унесу». Разбор показал
+      // главную причину: под 130 г креветок покупалась пачка на кило
+      // за 1250 ₽, под 15 г пармезана — упаковка за 360 ₽. Дорогие
+      // продукты с крупной фасовкой сваливались в первый заход,
+      // потому что нужны в первую неделю хотя бы немного.
+      //
+      // Такие позиции переносим на ту волну, где продукт нужен больше
+      // всего: человек купит пачку креветок тогда, когда действительно
+      // будет их готовить, а не «немножко на всякий случай».
+      const minPackCost =
+        (Math.min(...(product.packSizes.length ? product.packSizes : [1000])) / 1000) *
+        product.pricePerKg;
+      if (minPackCost >= 300 && waveCount > 1) {
+        let bestWave = w;
+        let bestNeed = needByWave[w][productId] ?? 0;
+        for (let k = w + 1; k < waveCount; k++) {
+          const n = needByWave[k][productId] ?? 0;
+          if (n > bestNeed) {
+            bestNeed = n;
+            bestWave = k;
+          }
+        }
+        // Если позже продукт нужен заметно больше — покупаем там.
+        // Пропускаем позицию сейчас: она появится в своей волне.
+        if (bestWave !== w && bestNeed > rawNeed * 1.5) {
+          carried[productId] = have;
+          continue;
+        }
       }
 
       // Потолок массы одной позиции: больше 4 кг за раз человек
@@ -169,6 +228,7 @@ export function planWaves(
       // Молоко со сроком 7 дней, купленное на неделю, — на грани.
       const fitsShelfLife = product.shelfLifeDays >= coversDays;
 
+      runningCost += (pack.totalGrams / 1000) * product.pricePerKg;
       lines.push({
         product,
         neededGrams: need,
