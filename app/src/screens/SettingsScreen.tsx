@@ -18,6 +18,8 @@ import {
 import type { Store } from '../state/store';
 import { PreferencesCard } from './PreferencesCard';
 import { PRODUCT_BY_ID } from '../data/products';
+import { EQUIPMENT_LABEL, EQUIPMENT_HINT, type Equipment } from '../core/equipment';
+import { MODE_LABEL, MODE_HINT, type BudgetMode } from '../core/tiers';
 
 function Field({
   label,
@@ -198,6 +200,9 @@ export function SettingsScreen({ store }: { store: Store }) {
     recalculate,
     recalculateMenu,
     toggleExcluded,
+    toggleEquipment,
+    setMode,
+    menu,
     setPrice,
     toggleTheme,
     reset,
@@ -239,6 +244,86 @@ export function SettingsScreen({ store }: { store: Store }) {
       </Card>
 
       <PreferencesCard store={store} />
+
+      {/*
+        КУХНЯ. Рецепт, который нечем приготовить, бесполезен независимо
+        от того, как он хорош по КБЖУ и цене. Приложение предлагало
+        запеканки людям без духовки — теперь спрашивает.
+      */}
+      <Card className="p-5">
+        <h2 className="mb-1 text-base font-bold text-surface-900 dark:text-white">
+          Что есть на кухне
+        </h2>
+        <p className="mb-3 text-[12px] leading-snug text-surface-400">
+          Блюда, которые нечем приготовить, предлагаться не будут
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {(Object.keys(EQUIPMENT_LABEL) as Equipment[]).map((item) => {
+            const has = state.equipment.includes(item);
+            return (
+              <button
+                key={item}
+                onClick={() => {
+                  toggleEquipment(item);
+                  setTimeout(() => void recalculateMenu(), 30);
+                }}
+                className={cx(
+                  'rounded-xl px-3 py-2.5 text-left transition-all active:scale-[0.98]',
+                  has
+                    ? 'bg-brand-600 text-white'
+                    : 'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400',
+                )}
+              >
+                <div className="text-[14px] font-semibold">{EQUIPMENT_LABEL[item]}</div>
+                <div className={cx('text-[11px] leading-tight', has ? 'text-white/75' : 'opacity-70')}>
+                  {EQUIPMENT_HINT[item]}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        {!state.equipment.includes('stove') && (
+          <p className="mt-2.5 text-[12px] leading-snug text-amber-700 dark:text-amber-400">
+            Без плиты меню соберётся из того, что не нужно варить:
+            запаренные каши, консервы, блюда для микроволновки.
+            Это рабочий вариант для общежития или командировки.
+          </p>
+        )}
+      </Card>
+
+      {/*
+        РЕЖИМ РАЦИОНА. Определяется по бюджету автоматически, но человек
+        вправе переопределить: «денег немного, но хочу разнообразия» —
+        это его решение, а не наше.
+      */}
+      <Card className="p-5">
+        <h2 className="mb-1 text-base font-bold text-surface-900 dark:text-white">
+          Каким должен быть рацион
+        </h2>
+        <p className="mb-3 text-[12px] leading-snug text-surface-400">
+          {state.mode
+            ? MODE_HINT[state.mode]
+            : 'Подбирается по вашему бюджету. Можно задать вручную'}
+        </p>
+        <Segmented
+          value={state.mode ?? 'auto'}
+          onChange={(v) => {
+            setMode(v === 'auto' ? null : (v as BudgetMode));
+            setTimeout(() => void recalculateMenu(), 30);
+          }}
+          options={[
+            { value: 'auto', label: 'Авто' },
+            { value: 'lean', label: MODE_LABEL.lean },
+            { value: 'balanced', label: MODE_LABEL.balanced },
+            { value: 'premium', label: MODE_LABEL.premium },
+          ]}
+        />
+        {menu?.status === 'optimal' && !state.mode && (
+          <p className="mt-2.5 text-[12px] text-surface-500 dark:text-surface-400">
+            Сейчас: <b>{MODE_LABEL[menu.mode]}</b> — {MODE_HINT[menu.mode].toLowerCase()}
+          </p>
+        )}
+      </Card>
 
       <Card className="p-5">
         <h2 className="mb-1 text-base font-bold text-surface-900 dark:text-white">

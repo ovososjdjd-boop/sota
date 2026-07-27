@@ -10,6 +10,8 @@ import { optimizeBasket } from '../core/optimizer';
 import { planMenu, type MenuResult } from '../core/menuPlanner';
 import { applySwap, recalcProducts, scheduleCost } from '../core/swap';
 import { emptyPreferences, type Liking, type Preferences } from '../core/preferences';
+import { DEFAULT_EQUIPMENT, type Equipment } from '../core/equipment';
+import type { BudgetMode } from '../core/tiers';
 import type { RecipeStats } from '../core/recipes';
 import { RECIPES } from '../data/recipes';
 
@@ -31,6 +33,14 @@ export interface AppState {
   theme: 'light' | 'dark';
   /** Максимум времени готовки в день, мин. 0 — без ограничения */
   maxCookingMinutes?: number;
+  /** Что есть на кухне: блюда, которые нечем приготовить, не предлагаются */
+  equipment: Equipment[];
+  /**
+   * Режим рациона. undefined — определяется автоматически по бюджету.
+   * Пользователь вправе переопределить: «денег немного, но хочу
+   * разнообразия» — его решение, а не наше.
+   */
+  mode?: BudgetMode;
 }
 
 export function makeEater(partial: Partial<EaterProfile> = {}): EaterProfile {
@@ -57,6 +67,7 @@ const DEFAULT_STATE: AppState = {
   excluded: [],
   pantry: {},
   preferences: emptyPreferences(),
+  equipment: DEFAULT_EQUIPMENT,
   onboarded: false,
   theme: 'light',
 };
@@ -74,6 +85,8 @@ function load(): AppState {
         dishes: parsed.preferences?.dishes ?? {},
         products: parsed.preferences?.products ?? {},
       },
+      // в старых сохранениях поля не было
+      equipment: parsed.equipment ?? DEFAULT_EQUIPMENT,
     };
   } catch {
     return DEFAULT_STATE;
@@ -137,6 +150,8 @@ export function useAppState() {
           eaters: state.eaters,
           preferences: state.preferences,
           maxCookingMinutes: state.maxCookingMinutes,
+          equipment: state.equipment,
+          mode: state.mode,
         },
         RECIPES,
         undefined,
@@ -153,6 +168,8 @@ export function useAppState() {
     state.excluded,
     state.preferences,
     state.maxCookingMinutes,
+    state.equipment,
+    state.mode,
   ]);
 
   /**
@@ -259,6 +276,23 @@ export function useAppState() {
     setMenu(null);
   }, []);
 
+  /** Есть ли на кухне такая техника. */
+  const toggleEquipment = useCallback((item: Equipment) => {
+    setState((s) => ({
+      ...s,
+      equipment: s.equipment.includes(item)
+        ? s.equipment.filter((x) => x !== item)
+        : [...s.equipment, item],
+    }));
+    setMenu(null);
+  }, []);
+
+  /** Режим рациона; null — вернуть автоопределение по бюджету. */
+  const setMode = useCallback((mode: BudgetMode | null) => {
+    setState((s) => ({ ...s, mode: mode ?? undefined }));
+    setMenu(null);
+  }, []);
+
   const toggleTheme = useCallback(() => {
     setState((s) => ({ ...s, theme: s.theme === 'dark' ? 'light' : 'dark' }));
   }, []);
@@ -287,6 +321,8 @@ export function useAppState() {
     setProductLiking,
     setDishLiking,
     toggleExcluded,
+    toggleEquipment,
+    setMode,
     toggleTheme,
     recalculate,
     reset,

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Card, Note, Spinner, Button } from '../ui/primitives';
 import { cx } from '../ui/cx';
 import { moneyPlain, mass } from '../core/format';
+import { MODE_LABEL } from '../core/tiers';
 import { MEAL_LABEL, ROLE_LABEL, type MealSlot } from '../core/recipes';
 import { findAlternatives, type SwapCandidate } from '../core/swap';
 import { RecipeSheet } from './RecipeSheet';
@@ -255,6 +256,14 @@ export function MenuScreen({ store }: { store: Store }) {
                 еды на {moneyPlain(menu.totalCost)} ₽ + запас
               </div>
             )}
+            {/*
+              Режим рациона видно сразу: человек должен понимать,
+              по какой логике собрано меню, а не гадать, почему
+              при большом бюджете появилась рыба, а при малом — нет.
+            */}
+            <div className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-700 dark:bg-brand-950/50 dark:text-brand-300">
+              {MODE_LABEL[menu.mode]} рацион
+            </div>
           </div>
           <div className="text-right">
             <div className="tnum text-lg font-bold text-brand-600 dark:text-brand-400">
