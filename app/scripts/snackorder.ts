@@ -4,7 +4,7 @@
  */
 import { planMenu } from '../src/core/menuPlanner';
 import { RECIPES } from '../src/data/recipes';
-import { emptyPreferences, type Preferences } from '../src/core/preferences';
+import { emptyPreferences } from '../src/core/preferences';
 import { makeEaterLike } from './simProfile';
 export default async function main(){
   for (const [lbl, mk] of [['без предпочтений', ()=>emptyPreferences()],
