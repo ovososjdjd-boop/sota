@@ -51,6 +51,7 @@ import {
   type ProductTier,
 } from './tiers';
 import { canCook, DEFAULT_EQUIPMENT, type Equipment } from './equipment';
+import { behaviorScore, applyAdaptation, type AdaptationState } from './adaptation';
 import {
   dishPreference,
   emptyPreferences,
@@ -90,6 +91,11 @@ export interface MenuRequest {
    * питаться разнообразно» — его право.
    */
   mode?: BudgetMode;
+  /**
+   * Накопленное поведение: что человек готовил, пропускал, заменял.
+   * Приложение подстраивается под факты, а не только под анкету.
+   */
+  adaptation?: AdaptationState;
 }
 
 export interface MenuResult {
@@ -188,7 +194,17 @@ function buildPackVars(candidates: DishCandidate[]): PackVar[] {
     })
     .filter((x): x is { productId: string; perDish: { i: number; grams: number }[]; weight: number } => x !== null)
     .sort((a, b) => b.weight - a.weight)
-    .slice(0, 45);
+    // 20, а не 45. Замер: при 45 продуктах модель имела 235 целых
+    // переменных, и солвер стабильно возвращал «Time limit reached» —
+    // то есть отдавал ПЕРВОЕ попавшееся допустимое решение, не успев
+    // его улучшить. Это выглядело как «предпочтения не работают»:
+    // отметка «люблю мясо» не меняла рацион вообще (7.4% против 7.5%),
+    // потому что до учёта наград дело просто не доходило.
+    //
+    // Двадцати самых дорогих по упаковке продуктов достаточно:
+    // именно на мясе, рыбе и сыре возникает основная переплата,
+    // а на крупах и овощах она копеечная.
+    .slice(0, 20);
 
   const out: PackVar[] = [];
   let n = 0;
@@ -248,7 +264,12 @@ function packagingPenaltyFor(stats: RecipeStats, typicalPortions: number): numbe
  * и у семьи из 4 оставались пустые приёмы. Теперь потолок согласован
  * с тем, что физически исполнимо в фазе 2.
  */
-function maxPortionsFor(recipe: Recipe, days: number, eaters: number): number {
+function maxPortionsFor(
+  recipe: Recipe,
+  days: number,
+  eaters: number,
+  preference = 1,
+): number {
   // Сколько РАЗ блюдо появится в меню за период. Правило неповторения
   // допускает days/3, но этого мало: на месяце получалось 10 подач
   // одного блюда, а оладьи попадали в меню 14 раз.
@@ -264,7 +285,15 @@ function maxPortionsFor(recipe: Recipe, days: number, eaters: number): number {
   // от двух недель и дальше.
   const gap = days >= 14 ? (recipe.role === 'snack' || recipe.role === 'drink' ? 4 : 5) : MIN_REPEAT_GAP_DAYS;
   const servings = Math.max(2, Math.round(days / gap));
-  return Math.max(1, servings * eaters);
+  // Любимое блюдо человек готов есть чаще — в этом и смысл отметки
+  // «люблю». Без поблажки правило неповторения давало жёсткие
+  // 6 подач за месяц любому блюду, и предпочтения не работали:
+  // награда в целевой функции была, а места для неё не было.
+  // Полуторный запас, а не снятие лимита: приедание реально,
+  // и человек, отметивший пять любимых блюд, не должен получить
+  // меню из пяти блюд.
+  const bonus = preference > 1.2 ? 1.6 : 1;
+  return Math.max(1, Math.round(servings * eaters * bonus));
 }
 
 /**
@@ -298,6 +327,8 @@ function buildDishModel(
    * свободному — потратить деньги на качество и разнообразие.
    */
   modeProfile: ModeProfile = MODE_PROFILES.balanced,
+  /** Явные предпочтения — из них выводятся требования по категориям */
+  prefs: Preferences = emptyPreferences(),
   /**
    * Моделировать ли упаковки явно (целые переменные «сколько пачек»).
    * Только для MILP: в LP-релаксации дробные пачки смысла не имеют
@@ -437,10 +468,31 @@ function buildDishModel(
   // вклад в целевую функцию (мы минимизируем), нежеланное — штраф.
   // Масштаб подобран так, чтобы предпочтения ощутимо влияли на выбор,
   // но не ломали КБЖУ и бюджет.
+  //
+  // МАСШТАБ. Вес 6 за порцию не работал: рядом в цели стоит награда
+  // за качественный белок (120-170 единиц) и штрафы за отклонение
+  // от КБЖУ, отмасштабированные к тысячам килокалорий. На их фоне
+  // «шесть» терялось, и отметка «люблю мясо» не меняла рацион вообще
+  // (замер: 7.4% против 7.5%). Приводим к тому же масштабу, что
+  // остальные слагаемые, — иначе предпочтения остаются декорацией.
+  //
+  // Награда пропорциональна КАЛОРИЙНОСТИ блюда, а не фиксирована.
+  //
+  // Фиксированная награда за порцию проигрывала по построению: солверу
+  // выгоднее взять шесть порций дешёвого лёгкого блюда, чем три порции
+  // любимого сытного, — суммарный бонус больше, а калории те же.
+  // Поэтому «люблю мясо» не меняло рацион (замер: 7.4% против 7.5%),
+  // хотя предпочтение доходило до модели правильно (множитель 1.6).
+  //
+  // Привязка к калорийности убирает этот перекос: бонус получает
+  // не «побольше штук», а «побольше еды из любимых продуктов».
+  const prefScale = 26;
+  const kcalNorm = Math.max(1, targets.kcal.target / candidates.length);
   candidates.forEach((c, i) => {
     const delta = c.preference - 1;
     if (Math.abs(delta) > 0.01) {
-      const bonus = delta * 6;
+      const weight = Math.min(3, c.stats.nutrients.kcal / kcalNorm);
+      const bonus = delta * prefScale * weight;
       objTerms.push(`${bonus > 0 ? '-' : ''}${Math.abs(bonus).toFixed(6)} x${i}`);
     }
   });
@@ -636,6 +688,63 @@ function buildDishModel(
     lines.push(
       ` tier_essential: ${essentialTerms} >= ` +
         `${(totalKcal * modeProfile.minEssentialShare * minSlack).toFixed(2)}`,
+    );
+  }
+
+  // ── ПРЯМОЕ ТРЕБОВАНИЕ ПО ЛЮБИМЫМ ПРОДУКТАМ ──
+  //
+  // Награды в целевой функции оказалось мало. Она работает как «при
+  // прочих равных предпочти это», но прочие никогда не равны: рядом
+  // штрафы за КБЖУ, остатки упаковок и лимиты разнообразия. Замер
+  // показал, что отметка «люблю мясо» сдвигала долю мяса с 7.2%
+  // до 7.5% — то есть практически никак.
+  //
+  // Человек, отметивший продукт как любимый, просит не «немного
+  // приоритета», а чтобы этот продукт был в рационе заметно.
+  // Поэтому переводим просьбу в ограничение: доля энергии из любимых
+  // категорий не ниже полуторной от обычной. Это тот же механизм,
+  // которым уже гарантируется минимум мяса и рыбы вообще.
+  //
+  // ОГРАНИЧЕНИЕ НА ЧИСЛО ТРЕБОВАНИЙ. Когда человек (или обучение
+  // по его поведению) отмечает много продуктов, требования по каждой
+  // категории складываются и делают задачу невыполнимой: прогон
+  // трёх месяцев адаптации давал budget_too_low уже на втором месяце.
+  //
+  // Смысл отметки «люблю» — приоритет, а не гарантия каждому продукту.
+  // Берём не больше трёх категорий: этого хватает, чтобы рацион
+  // ощутимо сместился, и мало, чтобы он остался выполнимым.
+  const likedCategories = new Set<ProductCategory>();
+  for (const [productId, liking] of Object.entries(prefs.products)) {
+    if (liking !== 'often' && liking !== 'always') continue;
+    const product = PRODUCT_BY_ID[productId];
+    if (product) likedCategories.add(product.category);
+  }
+  // приоритет — белковым категориям: именно их обычно и просят
+  const likedOrdered = [...likedCategories]
+    .sort(
+      (a, b) =>
+        Number(PROTEIN_CATEGORIES.includes(b)) - Number(PROTEIN_CATEGORIES.includes(a)),
+    )
+    .slice(0, 3);
+  for (const category of likedOrdered) {
+    const rule = CATEGORY_RULES[category];
+    if (!rule || rule.minEnergyShare <= 0) continue;
+    const terms = candidates
+      .map((c, i) => {
+        const v = c.stats.categoryKcal[category] ?? 0;
+        return v > 0 ? `${v.toFixed(6)} x${i}` : null;
+      })
+      .filter(Boolean)
+      .join(' + ');
+    if (!terms) continue;
+    // 2.2× обычного минимума, но не выше половины разрешённого потолка:
+    // просьба не должна ломать сбалансированность рациона
+    const want = Math.min(
+      rule.minEnergyShare * 2.2,
+      rule.maxEnergyShare * 0.5,
+    );
+    lines.push(
+      ` liked_${category}: ${terms} >= ${(targets.kcal.target * want * minSlack).toFixed(2)}`,
     );
   }
 
@@ -953,10 +1062,22 @@ function buildDishModel(
   candidates.forEach((c, i) => {
     // блюда «каждый день» под лимит разнообразия не попадают
     if (c.preference >= 3) return;
+    // ЛЮБИМЫМ БЛЮДАМ — БОЛЬШЕ МЕСТА.
+    //
+    // Найденный дефект: отметка «люблю мясо» не меняла рацион вообще
+    // (7.4% против 7.5%). Причина не в весах целевой функции, а в этом
+    // ограничении: лимит 5% энергии на блюдо одинаков для всех,
+    // и любимое блюдо упиралось в тот же потолок, что и случайное.
+    // Награда толкала солвер к мясу, ограничение не пускало.
+    //
+    // Человек, попросивший больше мяса, готов есть его чаще — это
+    // и есть смысл просьбы. Разнообразие при этом не рушится:
+    // потолок растёт в полтора раза, а не снимается.
+    const shareLimit = c.preference > 1.2 ? maxDishShare * 1.6 : maxDishShare;
     const k = c.stats.nutrients.kcal;
     if (k > 0) {
       lines.push(
-        ` var_${i}: ${k.toFixed(6)} x${i} <= ${(totalKcal * maxDishShare).toFixed(2)}`,
+        ` var_${i}: ${k.toFixed(6)} x${i} <= ${(totalKcal * shareLimit).toFixed(2)}`,
       );
     }
   });
@@ -1036,7 +1157,16 @@ export async function planMenu(
 
   const targets = periodTargets(request.eaters, request.days);
   const personDays = request.days * request.eaters.length;
-  const prefs = request.preferences ?? emptyPreferences();
+  // Явные предпочтения плюс выученные: блюда, от которых человек
+  // трижды отказался, понижаются автоматически.
+  const prefs = request.adaptation
+    ? applyAdaptation(
+        request.preferences ?? emptyPreferences(),
+        request.adaptation,
+        recipes,
+        products,
+      )
+    : (request.preferences ?? emptyPreferences());
 
   const dietTags = [...new Set(request.eaters.flatMap((e) => e.dietTags))];
   const allExcluded = new Set([
@@ -1057,14 +1187,29 @@ export async function planMenu(
     const stats = computeRecipeStats(recipe, products);
     if (!stats.valid || stats.nutrients.kcal <= 0) continue;
     if (!matchesDietTags(stats, dietTags, products)) continue;
-    const preference = dishPreference(recipe, prefs, products);
+    const declared = dishPreference(recipe, prefs, products);
     // «не предлагать» — блюдо вообще не рассматривается
-    if (preference === 0) continue;
+    if (declared === 0) continue;
+    // Поведение корректирует заявленное: человек говорит, что любит
+    // рыбу, а готовит макароны по-флотски — верить надо второму.
+    // Множитель узкий, чтобы случайный пропуск не менял картину.
+    //
+    // ПОТОЛОК 2.9 ОБЯЗАТЕЛЕН. Значение 3 и выше означает «подавать
+    // каждый день» — это осознанная команда человека («кофе по утрам»),
+    // и она снимает лимиты разнообразия и добавляет жёсткое требование
+    // «ровно N порций». Произведение 1.6 (люблю) × 1.9 (готовлю) = 3.04
+    // молча превращало обычное блюдо в обязательное, и после месяца
+    // обучения план становился невыполнимым (budget_too_low).
+    // Выученное поведение не должно давать команд, которых человек
+    // не отдавал.
+    const preference = request.adaptation
+      ? Math.min(2.9, declared * behaviorScore(request.adaptation, recipe.id))
+      : declared;
 
     const maxPortions =
       preference >= 3
         ? request.days * request.eaters.length
-        : maxPortionsFor(recipe, request.days, request.eaters.length);
+        : maxPortionsFor(recipe, request.days, request.eaters.length, preference);
     // типичное число готовок за период — по правилу неповторения
     const typical = Math.max(
       1,
@@ -1187,7 +1332,12 @@ export async function planMenu(
   // 60 кандидатов вместо 90 сокращают перебор вчетверо и дают солверу
   // дойти до оптимума. Разнообразие при этом не страдает: добор
   // по ролям и резерв под деликатесы работают поверх этого числа.
-  const SHORTLIST = 60;
+  // 35, а не 60. Замер показал: при 60 кандидатах MILP стабильно
+  // возвращал «Time limit reached», то есть отдавал первое допустимое
+  // решение, не успев его улучшить. Награды и предпочтения при этом
+  // просто не успевали проявиться. Меньше кандидатов — хуже теоретический
+  // оптимум, но solver до него доходит, и результат на практике лучше.
+  const SHORTLIST = 35;
   const keep = new Set(scored.slice(0, SHORTLIST).map((x) => x.i));
   // добираем разнообразие: минимум по 8 блюд каждой роли
   const byRole = new Map<string, number>();
@@ -1226,9 +1376,18 @@ export async function planMenu(
     .filter(({ i }) => keep.has(i))
     .map(({ c, i }) => ({
       ...c,
+      // Сужение границ по LP ускоряет MILP, но у него есть цена:
+      // потолок в 6 порций получало и любимое блюдо тоже. Отметка
+      // «люблю мясо» не меняла рацион вообще (7.4% против 7.5%) —
+      // награда в целевой функции была (−9.2 против −0.65), но упиралась
+      // в этот потолок и не могла ничего изменить. Любимым блюдам
+      // даём запас вдвое: они и должны появляться чаще.
       maxPortions: Math.min(
         c.maxPortions,
-        Math.max(Math.ceil((lp.Columns?.[`x${i}`]?.Primal ?? 0) * 2) + 6, 6),
+        Math.max(
+          Math.ceil((lp.Columns?.[`x${i}`]?.Primal ?? 0) * 2) + (c.preference > 1.2 ? 12 : 6),
+          c.preference > 1.2 ? 12 : 6,
+        ),
       ),
     }));
 
@@ -1243,6 +1402,7 @@ export async function planMenu(
     request.eaters.length,
     1,
     modeProfile,
+    prefs,
     true, // упаковки моделируем явно — это даёт пересечение ингредиентов
   );
   const sol = highs.solve(milpModel, {
@@ -1464,6 +1624,7 @@ export async function planMenu(
         request.eaters.length,
         slack,
         modeProfile,
+        prefs,
         true,
       );
       const leftMs = TOTAL_BUDGET_MS - (Date.now() - t0);

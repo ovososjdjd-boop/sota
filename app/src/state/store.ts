@@ -12,6 +12,12 @@ import { applySwap, recalcProducts, scheduleCost } from '../core/swap';
 import { emptyPreferences, type Liking, type Preferences } from '../core/preferences';
 import { DEFAULT_EQUIPMENT, type Equipment } from '../core/equipment';
 import type { BudgetMode } from '../core/tiers';
+import {
+  emptyAdaptation,
+  recordEvent,
+  type AdaptationState,
+  type DishEvent,
+} from '../core/adaptation';
 import type { RecipeStats } from '../core/recipes';
 import { RECIPES } from '../data/recipes';
 
@@ -41,6 +47,8 @@ export interface AppState {
    * разнообразия» — его решение, а не наше.
    */
   mode?: BudgetMode;
+  /** Что человек готовил, пропускал и заменял — приложение учится */
+  adaptation: AdaptationState;
 }
 
 export function makeEater(partial: Partial<EaterProfile> = {}): EaterProfile {
@@ -68,6 +76,7 @@ const DEFAULT_STATE: AppState = {
   pantry: {},
   preferences: emptyPreferences(),
   equipment: DEFAULT_EQUIPMENT,
+  adaptation: emptyAdaptation(),
   onboarded: false,
   theme: 'light',
 };
@@ -85,8 +94,9 @@ function load(): AppState {
         dishes: parsed.preferences?.dishes ?? {},
         products: parsed.preferences?.products ?? {},
       },
-      // в старых сохранениях поля не было
+      // в старых сохранениях полей не было
       equipment: parsed.equipment ?? DEFAULT_EQUIPMENT,
+      adaptation: parsed.adaptation ?? emptyAdaptation(),
     };
   } catch {
     return DEFAULT_STATE;
@@ -152,6 +162,7 @@ export function useAppState() {
           maxCookingMinutes: state.maxCookingMinutes,
           equipment: state.equipment,
           mode: state.mode,
+          adaptation: state.adaptation,
         },
         RECIPES,
         undefined,
@@ -170,6 +181,7 @@ export function useAppState() {
     state.maxCookingMinutes,
     state.equipment,
     state.mode,
+    state.adaptation,
   ]);
 
   /**
@@ -178,6 +190,18 @@ export function useAppState() {
    */
   const swapDish = useCallback(
     (dayIndex: number, slot: string, fromRecipeId: string, to: RecipeStats) => {
+      // Замена — самый сильный сигнал о вкусах: человек сразу говорит
+      // и что не подошло, и что взамен. Записываем автоматически,
+      // ничего не спрашивая: просить оценку после каждого действия —
+      // верный способ, чтобы приложением перестали пользоваться.
+      setState((s) => ({
+        ...s,
+        adaptation: recordEvent(
+          recordEvent(s.adaptation, fromRecipeId, 'swappedOut'),
+          to.recipe.id,
+          'swappedIn',
+        ),
+      }));
       setMenu((prev) => {
         if (!prev || prev.status !== 'optimal') return prev;
         const schedule = applySwap(prev.schedule, dayIndex, slot, fromRecipeId, to);
@@ -276,6 +300,17 @@ export function useAppState() {
     setMenu(null);
   }, []);
 
+  /**
+   * Отметить, что человек сделал с блюдом.
+   *
+   * Меню намеренно НЕ пересчитывается: перестраивать план под ногами
+   * человека, который только что отметил «приготовил», — худшее, что
+   * можно сделать. Знание применится при следующем построении.
+   */
+  const markDish = useCallback((recipeId: string, event: DishEvent) => {
+    setState((s) => ({ ...s, adaptation: recordEvent(s.adaptation, recipeId, event) }));
+  }, []);
+
   /** Есть ли на кухне такая техника. */
   const toggleEquipment = useCallback((item: Equipment) => {
     setState((s) => ({
@@ -321,6 +356,7 @@ export function useAppState() {
     setProductLiking,
     setDishLiking,
     toggleExcluded,
+    markDish,
     toggleEquipment,
     setMode,
     toggleTheme,
