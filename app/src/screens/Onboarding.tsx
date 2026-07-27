@@ -126,7 +126,46 @@ export function Onboarding({ store }: { store: Store }) {
           {busy ? 'Считаем…' : 'Составить меню'}
         </Button>
 
-        <p className="mt-4 text-center text-xs leading-relaxed text-surface-400 dark:text-surface-600">
+        {/*
+          ТРИ ОТЛИЧИЯ, КОТОРЫХ НЕТ НИ У ОДНОГО КОНКУРЕНТА ОДНОВРЕМЕННО
+          (docs/COMPETITORS.md). Раньше они лежали в README для
+          разработчиков — то есть их не видел никто из тех, кому они
+          адресованы. Человек должен понять ценность за первые
+          30 секунд, до того как введёт сумму.
+
+          Формулировки намеренно конкретные: не «умный алгоритм»,
+          а что именно приложение делает и чего не делает.
+        */}
+        <div className="mt-7 space-y-3">
+          {[
+            {
+              title: 'Считает деньги, а не только калории',
+              text: 'Лидеры рынка оптимизируют КБЖУ и не знают про бюджет. Мы держим и то, и другое.',
+            },
+            {
+              title: 'Показывает настоящий чек заранее',
+              text: 'Продукты продаются упаковками, поэтому в кассе всегда выходит больше. Мы говорим сколько — до похода в магазин.',
+            },
+            {
+              title: 'Работает без интернета и без ИИ',
+              text: 'Расчёт идёт на вашем телефоне. Ничего никуда не отправляется, подписка не нужна.',
+            },
+          ].map((f) => (
+            <div key={f.title} className="flex gap-3">
+              <div className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" />
+              <div>
+                <div className="text-[14px] font-semibold text-surface-800 dark:text-surface-100">
+                  {f.title}
+                </div>
+                <div className="mt-0.5 text-[13px] leading-snug text-surface-500 dark:text-surface-400">
+                  {f.text}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <p className="mt-6 text-center text-xs leading-relaxed text-surface-400 dark:text-surface-600">
           Порции — в стаканах, ложках и штуках. Весы не нужны.
           <br />
           Цены: Росстат, средние по России. Их можно поправить.
