@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react';
 import { Button, Note } from '../ui/primitives';
 import { cx } from '../ui/cx';
 import { Icon } from '../ui/icons';
-import { money, moneyPlain, mass, positions } from '../core/format';
+import { money, moneyPlain, mass, positions, days } from '../core/format';
 import { CATEGORY_LABEL, type ProductCategory } from '../core/types';
 import { packsNeeded, grossFromNet } from '../core/measures';
+import { planWaves, DEFAULT_WAVE_DAYS, type WaveLine } from '../core/waves';
 import type { Store } from '../state/store';
 import type { BasketItem, Product } from '../core/types';
 import { PRODUCT_BY_ID } from '../data/products';
@@ -60,6 +61,8 @@ interface Line {
   totalGrams: number;
   leftover: number;
   cost: number;
+  /** Что делать, если продукт не доживёт до конца волны */
+  advice?: 'freeze' | 'buyLater';
 }
 
 /**
@@ -103,6 +106,28 @@ function buildLinesFromMenu(
     });
   }
   return lines.sort((a, b) => b.cost - a.cost);
+}
+
+/** Позиция волны в формате строки списка покупок. */
+function waveLineToLine(w: WaveLine): Line {
+  return {
+    item: {
+      product: w.product,
+      units: 1,
+      measure: w.product.measures[0] ?? { kind: 'gram', grams: 100, label: 'г' },
+      grams: w.neededGrams,
+      cost: w.cost,
+      nutrients: nutrientsForGrams(w.product.per100g, w.neededGrams),
+      packsToBuy: w.packs,
+      leftoverGrams: w.carryOver,
+    },
+    packs: w.packs,
+    packSize: w.packSize,
+    totalGrams: w.buyGrams,
+    leftover: w.carryOver,
+    cost: w.cost,
+    advice: w.advice,
+  };
 }
 
 function buildLines(items: BasketItem[]): Line[] {
@@ -152,15 +177,36 @@ export function ShoppingScreen({ store }: { store: Store }) {
   const { state, plan, menu } = store;
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState(false);
+  // Какую волну показываем; null — весь список одним куском.
+  const [activeWave, setActiveWave] = useState<number | null>(0);
+
+  /*
+    ЗАКУПКА ВОЛНАМИ. Отзыв: «молоко 14.6 кг со сроком хранения 7 дней,
+    свинина 1.2 кг. Как я это донесу и где буду хранить? Приложение
+    не говорит, когда идти в магазин повторно».
+
+    На периоде дольше недели список режется на походы в магазин.
+    Скоропортящееся берётся на ближайшие дни, крупы и консервы —
+    с запасом на волну вперёд.
+  */
+  const waves = useMemo(() => {
+    if (menu?.status !== 'optimal' || menu.schedule.days.length <= DEFAULT_WAVE_DAYS) {
+      return [];
+    }
+    return planWaves(menu.schedule, DEFAULT_WAVE_DAYS, state.pantry);
+  }, [menu, state.pantry]);
 
   // Приоритет — меню: список покупок должен соответствовать блюдам,
   // которые человек будет готовить. Продуктовая корзина — запасной вариант.
   const lines = useMemo(() => {
+    if (waves.length > 0 && activeWave !== null && waves[activeWave]) {
+      return waves[activeWave].lines.map(waveLineToLine);
+    }
     if (menu?.status === 'optimal' && Object.keys(menu.products).length > 0) {
       return buildLinesFromMenu(menu.products, state.pantry);
     }
     return plan ? buildLines(plan.items) : [];
-  }, [menu, plan, state.pantry]);
+  }, [menu, plan, state.pantry, waves, activeWave]);
 
   const grouped = useMemo(() => {
     const map = new Map<ProductCategory, Line[]>();
@@ -238,6 +284,54 @@ export function ShoppingScreen({ store }: { store: Store }) {
       </div>
 
       <div className="space-y-4 px-4 pt-4">
+        {/*
+          Переключатель походов в магазин. Показывается только там,
+          где он осмыслен — на периоде дольше недели.
+        */}
+        {waves.length > 1 && (
+          <div>
+            <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+              {waves.map((w) => (
+                <button
+                  key={w.index}
+                  onClick={() => setActiveWave(w.index)}
+                  className={cx(
+                    'shrink-0 rounded-xl px-3.5 py-2 text-left transition-colors',
+                    activeWave === w.index
+                      ? 'bg-brand-600 text-white'
+                      : 'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400',
+                  )}
+                >
+                  <div className="text-[13px] font-semibold">
+                    Поход {w.index + 1}
+                  </div>
+                  <div className="text-[11px] opacity-80">
+                    день {w.dayIndex + 1} · {moneyPlain(w.cost)} ₽
+                  </div>
+                </button>
+              ))}
+              <button
+                onClick={() => setActiveWave(null)}
+                className={cx(
+                  'shrink-0 rounded-xl px-3.5 py-2 text-[13px] font-semibold transition-colors',
+                  activeWave === null
+                    ? 'bg-brand-600 text-white'
+                    : 'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400',
+                )}
+              >
+                Всё сразу
+              </button>
+            </div>
+            {activeWave !== null && waves[activeWave] && (
+              <Note>
+                Это покупки на {days(waves[activeWave].coversDays)} — с дня{' '}
+                {waves[activeWave].dayIndex + 1}. Свежее берём только на этот
+                срок, чтобы не пропало; крупы и консервы — с запасом.
+              </Note>
+            )}
+          </div>
+        )}
+
         {menu?.status === 'optimal' && totalPacksCost > menu.totalCost * 1.08 && (
           <Note tone={totalPacksCost > menu.totalCost * 1.6 ? 'warn' : 'info'}>
             {totalPacksCost > menu.totalCost * 1.6 ? (
@@ -317,6 +411,18 @@ export function ShoppingScreen({ store }: { store: Store }) {
                           </span>
                         )}
                       </div>
+                      {/*
+                        Совет вместо укора. Раньше здесь было бы
+                        «не доживёт» — бесполезно: человек не виноват,
+                        что фарш хранится два дня. Говорим, что делать.
+                      */}
+                      {l.advice && (
+                        <div className="mt-0.5 text-[12px] font-medium text-amber-600 dark:text-amber-400">
+                          {l.advice === 'freeze'
+                            ? '❄ заморозить сразу после покупки'
+                            : '⏱ лучше докупить свежим по ходу недели'}
+                        </div>
+                      )}
                     </div>
 
                     <div

@@ -1190,7 +1190,12 @@ export const RECIPES: Recipe[] = [
     id: 'trout_baked', name: 'Форель запечённая', role: 'main', slots: ['lunch', 'dinner'],
     minutes: 35, batchPortions: 2, keepsDays: 1, tags: ['gluten-free'],
     ingredients: [
-      { productId: 'salmon_trout', grams: 150, method: 'baked' },
+      // 120 г нетто, а не 150. Было завышено: 150 г — ресторанная подача,
+      // Сборник рецептур для второго рыбного блюда даёт 100-125 г нетто.
+      // На форели ошибка видна деньгами: с отходами 30% выходило 214 г
+      // брутто × 1150 ₽/кг = 246 ₽ только рыбы, порция 278 ₽ — впятеро
+      // дороже медианной (55 ₽). Норму вернули к справочной.
+      { productId: 'salmon_trout', grams: 120, method: 'baked' },
       { productId: 'potato', grams: 180, method: 'baked' },
       { productId: 'lemon', grams: 15 },
       { productId: 'olive_oil', grams: 12 },
@@ -1608,6 +1613,162 @@ export const RECIPES: Recipe[] = [
       { productId: 'turkey', grams: 130, method: 'fried' },
       { productId: 'frozen_veg_mix', grams: 160, method: 'fried' },
       { productId: 'sunflower_oil', grams: 12 },
+    ],
+  },
+
+  // ─────────── Быстрые обеды и ужины ───────────
+  //
+  // Добавлены после прогона с лимитом «час на готовку»: меню недобирало
+  // 17% калорий, и виноват был не алгоритм, а база. Быстрых основ
+  // на обед было всего 9 из 53 — оптимизатору просто нечего предложить,
+  // когда времени мало.
+  //
+  // Блюда подобраны по трём критериям сразу:
+  //   1) готовятся 15-25 минут и варятся партией на 3-4 порции;
+  //   2) плотность выше медианы (44 ккал/мин) — иначе лимит времени
+  //      съедает калорийность;
+  //   3) собраны из САМЫХ ХОДОВЫХ продуктов базы (фарш, картофель,
+  //      макароны, рис, яйца, лук, морковь, капуста). Это осознанно:
+  //      общие ингредиенты позволяют оптимизатору добивать одну пачку
+  //      вместо покупки трёх разных.
+  {
+    id: 'mince_potato_pan', name: 'Картошка с фаршем на сковороде', role: 'main',
+    slots: ['lunch', 'dinner'], minutes: 25, batchPortions: 4, keepsDays: 2,
+    tags: ['quick', 'gluten-free'],
+    ingredients: [
+      { productId: 'potato', grams: 220, method: 'fried' },
+      { productId: 'mince', grams: 110, method: 'fried' },
+      { productId: 'onion', grams: 40, method: 'fried' },
+      { productId: 'sunflower_oil', grams: 14 },
+    ],
+  },
+  {
+    id: 'navy_pasta_quick', name: 'Макароны с фаршем и томатом', role: 'main',
+    slots: ['lunch', 'dinner'], minutes: 20, batchPortions: 4, keepsDays: 2,
+    tags: ['quick'],
+    ingredients: [
+      { productId: 'pasta', grams: 100, method: 'boiled' },
+      { productId: 'mince', grams: 110, method: 'fried' },
+      { productId: 'tomato_paste', grams: 25 },
+      { productId: 'onion', grams: 35, method: 'fried' },
+      { productId: 'sunflower_oil', grams: 12 },
+    ],
+  },
+  {
+    id: 'rice_egg_pan', name: 'Рис с яйцом и овощами', role: 'main',
+    slots: ['lunch', 'dinner'], minutes: 18, batchPortions: 3, keepsDays: 2,
+    tags: ['quick', 'vegetarian', 'gluten-free'],
+    ingredients: [
+      { productId: 'rice', grams: 90, method: 'boiled' },
+      { productId: 'eggs', grams: 110, method: 'fried' },
+      { productId: 'frozen_veg_mix', grams: 120, method: 'fried' },
+      { productId: 'sunflower_oil', grams: 14 },
+    ],
+  },
+  {
+    id: 'chicken_potato_pan', name: 'Курица с картошкой на сковороде', role: 'main',
+    slots: ['lunch', 'dinner'], minutes: 25, batchPortions: 4, keepsDays: 2,
+    tags: ['quick', 'gluten-free'],
+    ingredients: [
+      { productId: 'chicken_fillet', grams: 130, method: 'fried' },
+      { productId: 'potato', grams: 200, method: 'fried' },
+      { productId: 'onion', grams: 35, method: 'fried' },
+      { productId: 'sunflower_oil', grams: 14 },
+    ],
+  },
+  {
+    id: 'buckwheat_mince', name: 'Гречка с фаршем', role: 'main',
+    slots: ['lunch', 'dinner'], minutes: 25, batchPortions: 4, keepsDays: 3,
+    tags: ['quick', 'gluten-free'],
+    ingredients: [
+      { productId: 'buckwheat', grams: 85, method: 'boiled' },
+      { productId: 'mince', grams: 100, method: 'fried' },
+      { productId: 'carrot', grams: 40, method: 'fried' },
+      { productId: 'onion', grams: 35, method: 'fried' },
+      { productId: 'sunflower_oil', grams: 12 },
+    ],
+  },
+  {
+    id: 'cabbage_mince_stew', name: 'Капуста тушёная с фаршем', role: 'main',
+    slots: ['lunch', 'dinner'], minutes: 25, batchPortions: 4, keepsDays: 3,
+    tags: ['quick', 'gluten-free'],
+    ingredients: [
+      { productId: 'cabbage', grams: 220, method: 'stewed' },
+      { productId: 'mince', grams: 110, method: 'fried' },
+      { productId: 'tomato_paste', grams: 20 },
+      { productId: 'onion', grams: 35, method: 'fried' },
+      { productId: 'sunflower_oil', grams: 14 },
+      { productId: 'bread_wheat', grams: 40 },
+    ],
+  },
+  {
+    id: 'pasta_cheese_egg', name: 'Макароны с сыром и яйцом', role: 'main',
+    slots: ['lunch', 'dinner'], minutes: 15, batchPortions: 2, keepsDays: 1,
+    tags: ['quick', 'vegetarian'],
+    ingredients: [
+      { productId: 'pasta', grams: 110, method: 'boiled' },
+      { productId: 'cheese', grams: 40 },
+      { productId: 'eggs', grams: 55, method: 'boiled' },
+      { productId: 'butter', grams: 12 },
+    ],
+  },
+  {
+    id: 'pollock_rice_quick', name: 'Минтай с рисом за 25 минут', role: 'main',
+    slots: ['lunch', 'dinner'], minutes: 25, batchPortions: 3, keepsDays: 2,
+    tags: ['quick', 'gluten-free'],
+    ingredients: [
+      { productId: 'pollock_fillet', grams: 150, method: 'fried' },
+      { productId: 'rice', grams: 90, method: 'boiled' },
+      { productId: 'carrot', grams: 40, method: 'fried' },
+      { productId: 'sunflower_oil', grams: 14 },
+    ],
+  },
+  {
+    id: 'lentil_mince_soup', name: 'Чечевичный суп с фаршем', role: 'soup',
+    slots: ['lunch'], minutes: 25, batchPortions: 4, keepsDays: 3,
+    tags: ['quick', 'gluten-free'],
+    ingredients: [
+      { productId: 'lentils', grams: 60, method: 'boiled' },
+      { productId: 'mince', grams: 70, method: 'fried' },
+      { productId: 'carrot', grams: 40, method: 'boiled' },
+      { productId: 'onion', grams: 30, method: 'fried' },
+      { productId: 'potato', grams: 80, method: 'boiled' },
+      { productId: 'sunflower_oil', grams: 10 },
+    ],
+  },
+  {
+    id: 'potato_egg_bake', name: 'Картофельная запеканка с яйцом', role: 'main',
+    slots: ['lunch', 'dinner'], minutes: 25, batchPortions: 4, keepsDays: 2,
+    tags: ['quick', 'vegetarian', 'gluten-free'],
+    ingredients: [
+      { productId: 'potato', grams: 230, method: 'boiled' },
+      { productId: 'eggs', grams: 80, method: 'baked' },
+      { productId: 'milk', grams: 60 },
+      { productId: 'cheese', grams: 30 },
+      { productId: 'butter', grams: 12 },
+    ],
+  },
+  {
+    id: 'sausage_buckwheat', name: 'Гречка с сосисками и овощами', role: 'main',
+    slots: ['lunch', 'dinner'], minutes: 20, batchPortions: 3, keepsDays: 2,
+    tags: ['quick'],
+    ingredients: [
+      { productId: 'buckwheat', grams: 85, method: 'boiled' },
+      { productId: 'sausages', grams: 90, method: 'fried' },
+      { productId: 'frozen_veg_mix', grams: 110, method: 'fried' },
+      { productId: 'sunflower_oil', grams: 10 },
+    ],
+  },
+  {
+    id: 'curd_pasta_bake', name: 'Макароны с творогом', role: 'main',
+    slots: ['lunch', 'dinner'], minutes: 18, batchPortions: 3, keepsDays: 2,
+    tags: ['quick', 'vegetarian'],
+    ingredients: [
+      { productId: 'pasta', grams: 100, method: 'boiled' },
+      { productId: 'cottage_cheese', grams: 120 },
+      { productId: 'sour_cream', grams: 30 },
+      { productId: 'butter', grams: 12 },
+      { productId: 'sugar', grams: 8 },
     ],
   },
 ];

@@ -5,3 +5,4 @@ dist/
 .spike/
 app/node_modules/
 app/dist/
+app/scripts/out/

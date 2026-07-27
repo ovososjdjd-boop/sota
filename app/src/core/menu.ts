@@ -16,6 +16,7 @@
  */
 
 import type { Nutrients } from './types';
+import { PRODUCT_BY_ID } from '../data/products';
 import {
   MEAL_ENERGY_SHARE,
   MEAL_SHARE_TOLERANCE,
@@ -198,8 +199,25 @@ export function buildSchedule(
           // первыми и забирали все основы — обеды оставались с гарнирами.
           // Теперь идём по дням, чередуя обед и ужин: оба приёма
           // получают основу в один день, прежде чем перейти к следующему.
+          //
+          // Но обход строго слева направо давал перекос: первые дни
+          // набивались под завязку (121% нормы, 186 минут готовки),
+          // а хвост периода голодал (52%). Разброс по дням был
+          // от 52% до 113% при том, что еды в сумме хватало.
+          //
+          // Поэтому первичный ключ — не номер дня, а НАПОЛНЕННОСТЬ дня:
+          // очередь всегда получает самый отстающий день. Номер дня
+          // остаётся вторичным ключом, чтобы при равенстве порядок
+          // был предсказуемым, а не случайным.
           const order: Record<string, number> = { lunch: 0, dinner: 1, breakfast: 2, snack: 3 };
           slots.sort((a, b) => {
+            const fillA = a.day.nutrients.kcal / Math.max(1, a.day.targetKcal);
+            const fillB = b.day.nutrients.kcal / Math.max(1, b.day.targetKcal);
+            // группируем по «ступеням» наполненности в 10%, иначе
+            // раскладка мечется между днями и рвёт batch cooking
+            const stepA = Math.floor(fillA * 10);
+            const stepB = Math.floor(fillB * 10);
+            if (stepA !== stepB) return stepA - stepB;
             if (a.day.index !== b.day.index) return a.day.index - b.day.index;
             return (order[a.meal.slot] ?? 9) - (order[b.meal.slot] ?? 9);
           });
@@ -291,8 +309,14 @@ export function buildSchedule(
           addTo(meal.nutrients, pick.stats.nutrients, serve);
           addTo(day.nutrients, pick.stats.nutrients, serve);
           if (cooked) {
-            meal.minutes += pick.stats.recipe.minutes;
-            day.minutes += pick.stats.recipe.minutes;
+            // Время пишем на тот день, когда плита реально занята.
+            // При готовке впрок это может быть более ранний день —
+            // иначе дневной лимит считался бы дважды за одну кастрюлю.
+            const cookDay =
+              findCookDay(schedule, pick.stats.recipe, day.index, maxMinutesPerDay) ??
+              day.index;
+            schedule[cookDay].minutes += pick.stats.recipe.minutes;
+            if (cookDay === day.index) meal.minutes += pick.stats.recipe.minutes;
           }
 
           const list = servedDays.get(pick.stats.recipe.id) ?? [];
@@ -406,6 +430,7 @@ function sweepRemainder(
             // Но если день упёрся в лимит, разогретое и готовое к еде
             // (фрукты, кефир, бутерброды) добавлять можно — иначе
             // приём останется пустым.
+            let cookDayIndex = day.index;
             if (maxMinutesPerDay && maxMinutesPerDay > 0 && cooked) {
               // Пустой основной приём хуже небольшого превышения лимита.
               // Для завтрака, обеда и ужина допускаем блюда до 15 минут
@@ -414,7 +439,10 @@ function sweepRemainder(
               const isEmpty = meal.dishes.length === 0;
               const allowance = isMain && isEmpty ? 15 : 5;
               const quick = recipe.minutes <= allowance;
-              if (!quick && day.minutes + recipe.minutes > maxMinutesPerDay) {
+              const found = findCookDay(schedule, recipe, day.index, maxMinutesPerDay);
+              if (found !== null) {
+                cookDayIndex = found;
+              } else if (!quick) {
                 continue;
               }
             }
@@ -424,8 +452,8 @@ function sweepRemainder(
             addTo(meal.nutrients, entry.stats.nutrients, serve);
             addTo(day.nutrients, entry.stats.nutrients, serve);
             if (cooked) {
-              meal.minutes += recipe.minutes;
-              day.minutes += recipe.minutes;
+              schedule[cookDayIndex].minutes += recipe.minutes;
+              if (cookDayIndex === day.index) meal.minutes += recipe.minutes;
             }
 
             served.push(day.index);
@@ -439,6 +467,43 @@ function sweepRemainder(
       }
     }
   }
+}
+
+/**
+ * На какой день записать готовку блюда, подаваемого в день dayIndex.
+ *
+ * Люди готовят впрок: кастрюля борща варится один раз и кормит три дня.
+ * Раньше время списывалось целиком на день подачи, и при лимите
+ * «60 минут» раскладка теряла 20% еды — почти всё горячее не влезало
+ * в дневной бюджет времени, хотя по сумме за период времени хватало.
+ *
+ * Возвращает индекс дня, на который относится время готовки:
+ * сегодня, если бюджет позволяет, иначе ближайший день в пределах
+ * срока хранения, где время есть. null — приготовить негде.
+ */
+function findCookDay(
+  schedule: PlannedDay[],
+  recipe: Recipe,
+  dayIndex: number,
+  maxMinutesPerDay?: number,
+): number | null {
+  if (!maxMinutesPerDay || maxMinutesPerDay <= 0) return dayIndex;
+  if (schedule[dayIndex].minutes + recipe.minutes <= maxMinutesPerDay) return dayIndex;
+
+  // готовить впрок можно только то, что хранится и варится партией
+  if (recipe.keepsDays <= 0 || recipe.batchPortions <= 1) return null;
+
+  const earliest = Math.max(0, dayIndex - recipe.keepsDays);
+  let best: number | null = null;
+  let bestLoad = Infinity;
+  for (let d = dayIndex - 1; d >= earliest; d--) {
+    const load = schedule[d].minutes;
+    if (load + recipe.minutes <= maxMinutesPerDay && load < bestLoad) {
+      best = d;
+      bestLoad = load;
+    }
+  }
+  return best;
 }
 
 /** Готовилось ли блюдо недавно — тогда сегодня только разогреваем. */
@@ -463,6 +528,48 @@ function wasCookedRecently(
  * не разнообразие, а ошибка. Реальный прогон давал ужин из макарон,
  * кукурузной каши и ячневой каши одновременно.
  */
+export const ROLE_GROUP_MAP: Record<string, string> = {
+  porridge: 'base',
+  side: 'base',
+  soup: 'soup',
+  main: 'main',
+  salad: 'salad',
+  snack: 'snack',
+  drink: 'drink',
+  bakery: 'bakery',
+};
+
+/**
+ * ВМЕСТИМОСТЬ РАСПИСАНИЯ — сколько подач группы блюд физически можно
+ * разложить за период.
+ *
+ * Зачем это здесь. Найден дефект, который дороже всех остальных:
+ * фаза 1 заказывала еду, не зная правил раскладки, и 17-29% порций
+ * не находили места. При этом продукты на них ПОКУПАЛИСЬ и попадали
+ * в список покупок и в КБЖУ. Человек платил за еду, которой нет
+ * в его меню, и видел «2500 ккал в день», хотя на тарелке было 1780.
+ *
+ * Пример из прогона (месяц, 1 человек): заказано 68 порций напитков,
+ * а мест ровно 60 — напиток уместен только в перекус и завтрак,
+ * и в один приём их не ставят по два. Восемь порций кефира куплены
+ * и выброшены ещё на этапе планирования.
+ *
+ * Правило раскладки простое: в один приём попадает не больше одного
+ * блюда каждой ролевой группы. Значит мест = дни × число приёмов,
+ * куда группа вообще допускается, × число едоков.
+ *
+ * Эта функция — единственный источник правды о вместимости.
+ * Фаза 1 берёт из неё верхние границы, фаза 2 живёт по тем же правилам.
+ */
+export function groupCapacity(
+  slots: readonly string[],
+  days: number,
+  eaters: number,
+): number {
+  const usableSlots = new Set(slots).size;
+  return days * usableSlots * eaters;
+}
+
 const ROLE_GROUP: Record<string, string> = {
   // «base» — углеводная основа тарелки. Две таких в одном приёме
   // («каша + макароны») — ошибка меню, а не разнообразие.
@@ -475,6 +582,35 @@ const ROLE_GROUP: Record<string, string> = {
   drink: 'drink',
   bakery: 'bakery',
 };
+
+/**
+ * Главное крахмалистое основание блюда: макароны, рис, гречка, картофель.
+ *
+ * Нужно, чтобы не подать в один приём «макароны с фаршем» и «макароны
+ * с маслом». Роли у них разные (основное и гарнир), правило по ролям
+ * такое сочетание пропускает, а на тарелке выходят макароны с макаронами.
+ *
+ * Считаем по самому массивному ингредиенту из круп, макарон и картофеля;
+ * мелкие добавки (ложка риса в суп) основанием не считаются.
+ */
+function dominantStaple(stats: RecipeStats): string | null {
+  let best: string | null = null;
+  let bestGrams = 0;
+  for (const ing of stats.recipe.ingredients) {
+    const product = PRODUCT_BY_ID[ing.productId];
+    if (!product) continue;
+    const isStaple =
+      product.category === 'grain' ||
+      (product.category === 'vegetable' && product.id === 'potato');
+    if (!isStaple) continue;
+    if (ing.grams > bestGrams) {
+      bestGrams = ing.grams;
+      best = ing.productId;
+    }
+  }
+  // меньше 40 г — это добавка, а не основа тарелки
+  return bestGrams >= 40 ? best : null;
+}
 
 /** Нужна ли приёму «основа» — суп, основное блюдо или каша. */
 function mealNeedsCore(meal: PlannedMeal): boolean {
@@ -522,11 +658,32 @@ function pickDishForMeal(
     // если человек сказал «кофе каждое утро», это его осознанный выбор.
     const served = servedDays.get(recipe.id) ?? [];
     const isDaily = entry.daily === true;
-    if (!isDaily && served.some((d) => Math.abs(day.index - d) < relax.repeatGap)) {
-      continue;
-    }
     // привычка подаётся ровно один раз в день, а не пачкой
     if (isDaily && served.includes(day.index)) continue;
+
+    if (!isDaily) {
+      // ДОЕДАНИЕ ПРИГОТОВЛЕННОГО — исключение из правила неповторения.
+      //
+      // Найденный дефект: 92% блюд готовились заново, хотя batchPortions
+      // у них 3-4 порции. Причина — конфликт двух правил. Неповторение
+      // запрещает подавать блюдо чаще раза в 3-5 дней, а хранится готовое
+      // 2-3 дня. Окна, в котором можно доесть вчерашнее, просто не было:
+      // кастрюля супа «протухала» в модели раньше, чем разрешалось
+      // подать суп снова. Итог — 145 минут готовки в день и обвал
+      // калорийности при любом лимите времени.
+      //
+      // СанПиН говорит о повторении ОДНИХ И ТЕХ ЖЕ БЛЮД в меню, то есть
+      // о новых готовках. Доесть вчерашний борщ — это та же готовка,
+      // растянутая на два дня, ровно так и питаются дома. Поэтому
+      // разрешаем подачу подряд, пока блюдо не испортилось и осталось
+      // в кастрюле, — но только соседними днями, без «размазывания»
+      // одного блюда на весь период.
+      const canFinishLeftovers =
+        recipe.keepsDays > 0 && wasCookedRecently(schedule, recipe, day.index);
+      if (!canFinishLeftovers && served.some((d) => Math.abs(day.index - d) < relax.repeatGap)) {
+        continue;
+      }
+    }
 
     // две «углеводные основы» в одном приёме — не разнообразие, а ошибка
     const group = ROLE_GROUP[recipe.role] ?? recipe.role;
@@ -534,6 +691,23 @@ function pickDishForMeal(
       (x) => (ROLE_GROUP[x.recipe.role] ?? x.recipe.role) === group,
     ).length;
     if (sameGroup >= relax.maxSameRole) continue;
+
+    // ОДИН И ТОТ ЖЕ ГАРНИР ДВАЖДЫ В ПРИЁМЕ.
+    //
+    // Найдено глазами на отрисованном меню: обед из «Макароны с фаршем
+    // и томатом» плюс «Макароны с маслом». Формально нарушения нет —
+    // роли разные (основное и гарнир), группы тоже. Но на тарелке
+    // это макароны с макаронами.
+    //
+    // Проверка по ролям здесь бессильна, нужна проверка по СОСТАВУ:
+    // у блюд не должно совпадать основное крахмалистое основание.
+    const base = dominantStaple(entry.stats);
+    if (
+      base &&
+      meal.dishes.some((x) => dominantStaple(x.stats) === base)
+    ) {
+      continue;
+    }
 
     // Завтрак и ужин компактнее обеда: каша/основное + дополнение.
     if ((meal.slot === 'breakfast' || meal.slot === 'dinner') && meal.dishes.length >= 3) {
@@ -549,9 +723,16 @@ function pickDishForMeal(
     // Не перегружаем день готовкой. Фаза 1 задаёт средний бюджет времени,
     // но раскладка может собрать все трудоёмкие блюда в один день —
     // человек с лимитом «час» получал дни по 4 часа у плиты.
+    //
+    // Важно: блюдо отбраковывается, только если готовится СЕГОДНЯ.
+    // Разогрев готового времени почти не стоит и лимитом не ограничен —
+    // иначе кастрюля супа, сваренная вчера, не могла бы попасть
+    // в сегодняшний обед, и приём оставался пустым при полном холодильнике.
     if (maxMinutesPerDay && maxMinutesPerDay > 0) {
       const willCook = !wasCookedRecently(schedule, recipe, day.index);
-      if (willCook && day.minutes + recipe.minutes > maxMinutesPerDay) {
+      // Готовка впрок: если сегодня времени нет, блюдо всё равно годится,
+      // когда его можно сварить заранее и оно доживёт до подачи.
+      if (willCook && findCookDay(schedule, recipe, day.index, maxMinutesPerDay) === null) {
         continue;
       }
     }
@@ -594,8 +775,25 @@ function pickDishForMeal(
       score += 0.75;
     }
 
-    // batch cooking: доесть готовое приятнее, чем варить заново
-    if (wasCookedRecently(schedule, recipe, day.index)) score += 0.2;
+    // BATCH COOKING. Доесть готовое приятнее, чем варить заново,
+    // а при жёстком лимите времени — ещё и единственный способ
+    // накормить человека.
+    //
+    // Бонус был фиксированным (0.2) и проигрывал награде за новое
+    // блюдо (0.75). Пока времени вдоволь, это правильно: разнообразие
+    // важнее. Но при лимите 60 мин/день бюджет времени исчерпывался
+    // на 102%, обед недобирал 25% калорий — раскладка упрямо бралась
+    // за новую готовку вместо кастрюли, стоящей в холодильнике.
+    //
+    // Поэтому вес зависит от того, есть ли ещё время сегодня.
+    // Свободен день — разнообразим; время кончилось — доедаем.
+    if (wasCookedRecently(schedule, recipe, day.index)) {
+      const tight =
+        maxMinutesPerDay !== undefined &&
+        maxMinutesPerDay > 0 &&
+        day.minutes + recipe.minutes > maxMinutesPerDay;
+      score += tight ? 1.2 : 0.2;
+    }
 
     // блюда с большим остатком порций — приоритет, чтобы всё разошлось
     score += Math.min(entry.portions / 10, 0.2);

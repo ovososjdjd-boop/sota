@@ -33,13 +33,27 @@ function p(
   opts: Partial<Omit<Product, 'id' | 'name' | 'category' | 'per100g' | 'pricePerKg'>> & {
     /** Пищевые волокна, г на 100 г (Скурихин) */
     fiber?: number;
+    /**
+     * Органические кислоты, г на 100 г (Скурихин).
+     * Дают 3 ккал/г и входят в справочную калорийность. Указываем там,
+     * где величина значима: цитрусовые, ягоды, кисломолочное, квашения.
+     * Без этого поля проверка по Атуотеру ложно ругалась на лимон (51%).
+     */
+    organicAcids?: number;
   } = {},
 ): Product {
   return {
     id,
     name,
     category,
-    per100g: { kcal, protein, fat, carbs, fiber: opts.fiber ?? 0 },
+    per100g: {
+      kcal,
+      protein,
+      fat,
+      carbs,
+      fiber: opts.fiber ?? 0,
+      organicAcids: opts.organicAcids ?? 0,
+    },
     pricePerKg,
     wasteRatio: opts.wasteRatio ?? 0,
     yields: opts.yields ?? {},
@@ -340,7 +354,7 @@ export const PRODUCTS: Product[] = [
     tags: ['vegan', 'gluten-free'],
   }),
   p('tomato', 'Помидоры', 'vegetable', 20, 1.1, 0.2, 3.8, 398, {
-    fiber: 1.2,
+    fiber: 1.2, organicAcids: 0.8,
     wasteRatio: 0.05,
     measures: [pieceMeasure(120, 'шт')],
     packSizes: [500, 1000],
@@ -360,7 +374,7 @@ export const PRODUCTS: Product[] = [
 
   // ───────────────── Фрукты ─────────────────
   p('apple', 'Яблоки', 'fruit', 47, 0.4, 0.4, 9.8, 210, {
-    fiber: 1.8,
+    fiber: 1.8, organicAcids: 0.8,
     wasteRatio: 0.1,
     measures: [pieceMeasure(180, 'шт')],
     packSizes: [1000],
@@ -490,12 +504,12 @@ export const PRODUCTS: Product[] = [
     packSizes: [400], shelfLifeDays: 365, tags: ['vegan', 'gluten-free'],
   }),
   p('pear', 'Груши', 'fruit', 42, 0.4, 0.3, 10.9, 220, {
-    fiber: 2.8, wasteRatio: 0.1,
+    fiber: 2.8, organicAcids: 0.5, wasteRatio: 0.1,
     measures: [pieceMeasure(170, 'шт')],
     packSizes: [1000], shelfLifeDays: 14, tags: ['vegan', 'gluten-free'],
   }),
   p('orange', 'Апельсины', 'fruit', 43, 0.9, 0.2, 8.1, 185, {
-    fiber: 2.2, wasteRatio: 0.3,
+    fiber: 2.2, organicAcids: 1.3, wasteRatio: 0.3,
     measures: [pieceMeasure(200, 'шт')],
     packSizes: [1000], shelfLifeDays: 20, tags: ['vegan', 'gluten-free'],
   }),
@@ -590,8 +604,13 @@ export const PRODUCTS: Product[] = [
     measures: [pieceMeasure(150, 'филе')],
     packSizes: [500, 1000], shelfLifeDays: 90, tags: ['gluten-free'],
   }),
+  // Отходы 12%, а не 30%. Была рассогласованность внутри карточки:
+  // мера — «стейк», то есть рыба уже разделана, а доля отходов стояла
+  // как для целой тушки с головой и потрохами. Мы платили за отходы,
+  // которых в стейке нет: порция выходила 278 ₽ при медиане по базе 55 ₽.
+  // 12% — кожа и позвоночная кость, которые в стейке остаются.
   p('salmon_trout', 'Форель', 'fish', 141, 20.5, 6.3, 0.0, 1150, {
-    wasteRatio: 0.3, yields: { baked: 0.78, fried: 0.77 },
+    wasteRatio: 0.12, yields: { baked: 0.78, fried: 0.77 },
     measures: [pieceMeasure(150, 'стейк ≈150 г')],
     packSizes: [1000], shelfLifeDays: 4, perishable: true, tags: ['gluten-free'],
   }),
@@ -694,12 +713,12 @@ export const PRODUCTS: Product[] = [
 
   // ───────────────── Фрукты и ягоды ─────────────────
   p('mandarin', 'Мандарины', 'fruit', 38, 0.8, 0.2, 7.5, 210, {
-    fiber: 1.8, wasteRatio: 0.26,
+    fiber: 1.8, organicAcids: 1.1, wasteRatio: 0.26,
     measures: [pieceMeasure(90, 'шт')],
     packSizes: [1000], shelfLifeDays: 14, tags: ['vegan', 'gluten-free'],
   }),
   p('kiwi', 'Киви', 'fruit', 47, 0.8, 0.4, 8.1, 320, {
-    fiber: 3.8, wasteRatio: 0.2,
+    fiber: 3.8, organicAcids: 1.0, wasteRatio: 0.2,
     measures: [pieceMeasure(90, 'шт')],
     packSizes: [1000], shelfLifeDays: 14, tags: ['vegan', 'gluten-free'],
   }),
@@ -719,7 +738,7 @@ export const PRODUCTS: Product[] = [
     packSizes: [200, 500], shelfLifeDays: 180, tags: ['vegan', 'gluten-free'],
   }),
   p('lemon', 'Лимон', 'fruit', 34, 0.9, 0.1, 3.0, 290, {
-    fiber: 2.0, wasteRatio: 0.4,
+    fiber: 2.0, organicAcids: 5.7, wasteRatio: 0.4,
     measures: [pieceMeasure(90, 'шт')],
     packSizes: [500], shelfLifeDays: 21, tags: ['vegan', 'gluten-free', 'condiment'],
   }),

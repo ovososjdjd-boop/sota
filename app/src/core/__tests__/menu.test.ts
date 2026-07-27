@@ -200,11 +200,25 @@ describe('планировщик меню', () => {
     }
 
     for (const [id, days] of served) {
+      const recipe = RECIPE_BY_ID[id];
       const unique = [...new Set(days)].sort((a, b) => a - b);
       for (let i = 1; i < unique.length; i++) {
         const gap = unique[i] - unique[i - 1];
-        expect(gap, `${RECIPE_BY_ID[id].name}: дни ${unique.map((d) => d + 1).join(',')}`)
+        // ДОЕДАНИЕ — законное исключение. СанПиН запрещает повторять
+        // блюда в меню, то есть готовить одно и то же через день.
+        // Доесть вчерашний суп из той же кастрюли — не новая готовка,
+        // а ровно то, как питаются дома. Такие подачи идут подряд
+        // и ограничены сроком хранения блюда.
+        if (gap === 1 && recipe.keepsDays > 0) continue;
+        expect(gap, `${recipe.name}: дни ${unique.map((d) => d + 1).join(',')}`)
           .toBeGreaterThanOrEqual(2);
+      }
+
+      // Но растягивать доедание дольше срока хранения нельзя.
+      const span = unique[unique.length - 1] - unique[0];
+      if (unique.length > 1 && span === unique.length - 1) {
+        expect(unique.length - 1, `${recipe.name}: подряд ${unique.length} дней`)
+          .toBeLessThanOrEqual(recipe.keepsDays);
       }
     }
   }, 60000);

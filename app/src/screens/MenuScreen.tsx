@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Card, Note, Spinner, Button } from '../ui/primitives';
 import { cx } from '../ui/cx';
-import { moneyPlain } from '../core/format';
+import { moneyPlain, mass } from '../core/format';
 import { MEAL_LABEL, ROLE_LABEL, type MealSlot } from '../core/recipes';
 import { findAlternatives, type SwapCandidate } from '../core/swap';
 import { RecipeSheet } from './RecipeSheet';
@@ -57,6 +57,12 @@ function DishRow({
         </div>
         <div className="mt-0.5 text-[12px] text-surface-400">
           {ROLE_LABEL[dish.recipe.role]}
+          {/*
+            Граммовка порции. Отзыв: «в меню не видно граммовки порции —
+            только ккал». Показываем массу ГОТОВОГО блюда: именно столько
+            окажется в тарелке, с учётом уварки крупы и ужарки мяса.
+          */}
+          {` · ${mass(dish.stats.cookedGrams)}`}
           {perPerson > 1.2 && ` · ${perPerson.toFixed(perPerson % 1 ? 1 : 0)} порции`}
           {dish.cooked && dish.recipe.minutes > 5 && ` · ${dish.recipe.minutes} мин`}
         </div>

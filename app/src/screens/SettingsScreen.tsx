@@ -9,7 +9,12 @@ import {
   type Goal,
   type EaterProfile,
 } from '../core/types';
-import { dailyTargets } from '../core/nutrition';
+import {
+  dailyTargets,
+  defaultProteinPerKg,
+  PROTEIN_PER_KG_MIN,
+  PROTEIN_PER_KG_MAX,
+} from '../core/nutrition';
 import type { Store } from '../state/store';
 import { PreferencesCard } from './PreferencesCard';
 import { PRODUCT_BY_ID } from '../data/products';
@@ -54,6 +59,8 @@ function EaterCard({
 }) {
   const { setEater, removeEater, recalculate } = store;
   const targets = dailyTargets(eater);
+  const isCustomProtein = eater.proteinPerKg != null;
+  const proteinPerKg = eater.proteinPerKg ?? defaultProteinPerKg(eater.goal);
 
   const change = (patch: Partial<EaterProfile>) => {
     setEater(eater.id, patch);
@@ -127,6 +134,42 @@ function EaterCard({
             label: v,
           }))}
         />
+      </div>
+
+      {/*
+        Ползунок белка — отдельно от калорий.
+        Отзыв: «поставил цель "набрать вес" ради белка — белок вырос,
+        но и калории до 3600. Нельзя попросить больше белка при тех же
+        калориях». Теперь можно: калорийность держится, меняется состав.
+      */}
+      <div className="mb-4">
+        <div className="mb-1.5 flex items-baseline justify-between">
+          <label className="text-xs font-semibold text-surface-500 dark:text-surface-400">
+            Белок
+          </label>
+          <span className="tnum text-xs font-bold text-brand-600 dark:text-brand-400">
+            {proteinPerKg.toFixed(1)} г/кг · {Math.round(proteinPerKg * eater.weightKg)} г в день
+          </span>
+        </div>
+        <input
+          type="range"
+          min={PROTEIN_PER_KG_MIN}
+          max={PROTEIN_PER_KG_MAX}
+          step={0.1}
+          value={proteinPerKg}
+          onChange={(e) => change({ proteinPerKg: Number(e.target.value) })}
+          className="h-2 w-full cursor-pointer appearance-none rounded-full bg-surface-200 accent-brand-600 dark:bg-surface-800"
+        />
+        <div className="mt-1 flex justify-between text-[10px] text-surface-400">
+          <span>0.8 — минимум</span>
+          <span>1.2 — обычно</span>
+          <span>2.2 — максимум</span>
+        </div>
+        <p className="mt-1.5 text-[11px] leading-snug text-surface-400">
+          {isCustomProtein
+            ? 'Калории останутся прежними — изменится состав рациона: больше мяса, рыбы и творога вместо круп.'
+            : `По вашей цели «${GOAL_LABEL[eater.goal].toLowerCase()}» — ${defaultProteinPerKg(eater.goal)} г/кг. Можно задать своё.`}
+        </p>
       </div>
 
       <div className="rounded-xl bg-brand-50 px-4 py-3 dark:bg-brand-950/40">

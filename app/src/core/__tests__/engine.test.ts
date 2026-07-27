@@ -67,7 +67,31 @@ describe('nutrition: расчёт норм', () => {
 
   it('белок не опускается ниже физиологического минимума 0.8 г/кг', () => {
     const t = dailyTargets(adultMale);
-    expect(t.protein.min).toBeCloseTo(0.8 * 75, 1);
+    // Нижняя граница белка = максимум из физиологического минимума ВОЗ
+    // и того, что человек попросил (с допуском 8%). Раньше здесь стоял
+    // голый минимум 0.8 г/кг, но тогда просьба «хочу 1.8 г/кг» ничего
+    // не гарантировала: солвер видел min 0.8 и экономил на мясе.
+    expect(t.protein.min).toBeGreaterThanOrEqual(0.8 * 75);
+    expect(t.protein.min).toBeLessThanOrEqual(t.protein.target);
+  });
+
+  it('белок настраивается отдельно от калорий', () => {
+    const base = dailyTargets(adultMale);
+    const highProtein = dailyTargets({ ...adultMale, proteinPerKg: 1.8 });
+    // белок вырос
+    expect(highProtein.protein.target).toBeCloseTo(1.8 * 75, 1);
+    expect(highProtein.protein.target).toBeGreaterThan(base.protein.target);
+    // а калории остались теми же — в этом весь смысл параметра
+    expect(highProtein.kcal.target).toBeCloseTo(base.kcal.target, 1);
+    // энергия перераспределена: углеводов стало меньше
+    expect(highProtein.carbs.target).toBeLessThan(base.carbs.target);
+  });
+
+  it('запрошенный белок ограничен разумными пределами', () => {
+    const tooMuch = dailyTargets({ ...adultMale, proteinPerKg: 9 });
+    expect(tooMuch.protein.target).toBeCloseTo(2.2 * 75, 1);
+    const tooLittle = dailyTargets({ ...adultMale, proteinPerKg: 0.1 });
+    expect(tooLittle.protein.target).toBeCloseTo(0.8 * 75, 1);
   });
 
   it('цели согласованы по Атуотеру (белки+жиры+углеводы ≈ калории)', () => {

@@ -61,18 +61,44 @@ export function goalAdjustedEnergy(p: EaterProfile): number {
  * Жиры — не менее 0.8 г/кг (мембраны, гормоны), целевое 30% калорий.
  * Углеводы — остаток калорий.
  */
+/** Норма белка по цели, г/кг массы тела — если человек не задал свою. */
+export function defaultProteinPerKg(goal: EaterProfile['goal']): number {
+  return goal === 'lose' ? 1.6 : goal === 'gain' ? 1.8 : 1.2;
+}
+
+/**
+ * Границы ползунка белка, г/кг.
+ * Низ — физиологический минимум ВОЗ, верх — разумный потолок,
+ * выше которого доказанной пользы нет, а нагрузка на почки растёт.
+ */
+export const PROTEIN_PER_KG_MIN = 0.8;
+export const PROTEIN_PER_KG_MAX = 2.2;
+
 export function dailyTargets(p: EaterProfile): NutrientTargets {
   const kcal = goalAdjustedEnergy(p);
 
-  const proteinPerKg = p.goal === 'lose' ? 1.6 : p.goal === 'gain' ? 1.8 : 1.2;
-  const protein = proteinPerKg * p.weightKg;
-  const proteinMin = 0.8 * p.weightKg; // физиологический минимум ВОЗ
-  const proteinMax = 2.2 * p.weightKg; // верхняя разумная граница
+  // Белок — САМОСТОЯТЕЛЬНЫЙ параметр, а не производная от цели.
+  //
+  // Отзыв: «поставил цель "набрать вес" ради белка. Белок вырос
+  // до 148 г, но калории — до 3600. Я растолстею. Нельзя попросить
+  // больше белка при тех же калориях». Это самая частая жалоба
+  // на рынке (docs/COMPETITORS.md, §3): у конкурентов белок жёстко
+  // привязан к калорийности, и поднять его отдельно нельзя.
+  //
+  // Теперь можно: proteinPerKg задаётся человеком, калории при этом
+  // не меняются — растёт доля белка за счёт замены источников энергии.
+  const perKg = p.proteinPerKg ?? defaultProteinPerKg(p.goal);
+  const protein = clamp(perKg, PROTEIN_PER_KG_MIN, PROTEIN_PER_KG_MAX) * p.weightKg;
+  const proteinMin = PROTEIN_PER_KG_MIN * p.weightKg;
+  const proteinMax = PROTEIN_PER_KG_MAX * p.weightKg;
 
   const fat = (kcal * 0.3) / 9;
   const fatMin = Math.max(0.8 * p.weightKg, (kcal * 0.2) / 9);
   const fatMax = (kcal * 0.35) / 9;
 
+  // Углеводы — ОСТАТОК калорий после белка и жиров. Именно здесь
+  // «замена источников энергии»: подняли белок — сузились углеводы,
+  // а общая калорийность осталась прежней.
   const carbsKcal = kcal - protein * 4 - fat * 9;
   const carbs = Math.max(carbsKcal / 4, 50); // минимум для работы мозга
 
@@ -84,10 +110,21 @@ export function dailyTargets(p: EaterProfile): NutrientTargets {
 
   return {
     kcal: band(kcal, ENERGY_UNCERTAINTY),
-    protein: { min: proteinMin, target: protein, max: proteinMax },
+    // Нижняя граница белка — не абстрактный минимум ВОЗ, а то, что
+    // человек попросил, с небольшим допуском. Иначе «хочу 1.8 г/кг»
+    // остаётся пожеланием: солвер видит min 0.8 и спокойно экономит.
+    protein: {
+      min: Math.max(proteinMin, protein * 0.92),
+      target: protein,
+      max: proteinMax,
+    },
     fat: { min: fatMin, target: fat, max: fatMax },
     carbs: band(carbs, 0.2),
   };
+}
+
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.min(hi, Math.max(lo, v));
 }
 
 /** Суммарные цели на всю семью за период. */
@@ -146,9 +183,28 @@ export function nutrientsForGrams(per100g: Nutrients, grams: number): Nutrients 
  * Проверка энергетической согласованности: сумма макросов по Атуотеру
  * должна примерно совпадать с заявленной калорийностью.
  * Возвращает относительное расхождение.
+ *
+ * Используется РАСШИРЕННАЯ схема Атуотера, как в справочнике Скурихина:
+ *   белки 4 · жиры 9 · углеводы 4 · органические кислоты 3 ккал/г.
+ *
+ * Найденный дефект: без слагаемого органических кислот проверка
+ * объявляла ошибкой корректные данные. Лимон — 34 ккал по справочнику,
+ * а по короткой формуле выходило 16.5 (расхождение 51%). Причина не
+ * в карточке продукта, а в том, что 5.7 г лимонной кислоты на 100 г
+ * дают ещё 17 ккал. Правильный вывод — чинить формулу, а не данные:
+ * подгонка углеводов «чтобы тест позеленел» испортила бы КБЖУ рациона.
+ *
+ * Клетчатка намеренно НЕ учитывается: справочник включает её в общие
+ * углеводы, и отдельное слагаемое привело бы к двойному счёту.
  */
+export const ORGANIC_ACID_KCAL_PER_G = 3;
+
 export function atwaterDiscrepancy(n: Nutrients): number {
-  const computed = n.protein * 4 + n.fat * 9 + n.carbs * 4;
+  const computed =
+    n.protein * 4 +
+    n.fat * 9 +
+    n.carbs * 4 +
+    (n.organicAcids ?? 0) * ORGANIC_ACID_KCAL_PER_G;
   if (n.kcal === 0) return computed === 0 ? 0 : 1;
   return Math.abs(computed - n.kcal) / n.kcal;
 }
