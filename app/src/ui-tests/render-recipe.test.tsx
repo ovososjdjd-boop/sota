@@ -37,17 +37,21 @@ describe('карточка блюда', () => {
       timeout: 120000,
     });
 
-    // открываем первое блюдо дня
-    const dishButtons = container.querySelectorAll('button');
-    let opened = false;
-    for (const b of dishButtons) {
-      if (b.textContent?.includes('Основное') || b.textContent?.includes('Каша')) {
-        await user.click(b);
-        opened = true;
-        break;
-      }
-    }
-    expect(opened, 'не нашлось блюда, на которое можно нажать').toBe(true);
+    // Открываем первое блюдо дня — ЛЮБОЕ, а не заранее угаданное.
+    //
+    // Здесь тест был хрупким: он искал кнопку со словом «Основное»
+    // или «Каша». Как только планировщик собрал первый день из супа
+    // и гарнира — вполне нормальный день, — тест упал, хотя приложение
+    // работало правильно. Тест обязан проверять ДОГОВОР («карточку
+    // блюда можно открыть»), а не конкретное содержимое меню, которое
+    // меняется от каждой правки движка.
+    const ROLES = ['Каша', 'Суп', 'Основное', 'Гарнир', 'Салат', 'Перекус', 'Напиток', 'Выпечка'];
+    const dishButtons = [...container.querySelectorAll('button')];
+    const dishButton = dishButtons.find((b) =>
+      ROLES.some((r) => b.textContent?.includes(r)),
+    );
+    expect(dishButton, 'не нашлось блюда, на которое можно нажать').toBeTruthy();
+    await user.click(dishButton!);
 
     await waitFor(() => expect(screen.getByText(/Приготовили это блюдо/i)).toBeInTheDocument());
     const text = dump(container);

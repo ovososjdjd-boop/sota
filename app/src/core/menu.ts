@@ -585,6 +585,71 @@ export function buildSchedule(
   // из самого сытого дня и отдаём самому голодному.
   balanceDays(schedule, eaters, maxMinutesPerDay);
 
+  // ── ВЫРАВНИВАНИЕ ВНУТРИ ДНЯ ──
+  //
+  // НАЙДЕННЫЙ ДЕФЕКТ. Все механизмы выравнивания работали МЕЖДУ днями,
+  // а внутри дня не следил никто. Результат виден в симуляции сразу:
+  // завтрак 907 ккал, обед 441 — при нормах 627 и 877. День в сумме
+  // правильный (2340 ккал), но человек ест не сумму, а по очереди:
+  // гора еды утром и половина тарелки в обед.
+  //
+  // Три попытки лечить это запретами (ограничить overfillFactor,
+  // не класть второе сытное блюдо, урезать уборщик) либо не дали
+  // ничего, либо удвоили потери порций — жадный алгоритм принимает
+  // решение, не зная, что будет дальше в этом же дне.
+  //
+  // Работает то же, что сработало для дней: не запрещать заранее,
+  // а переставить постфактум, когда день собран целиком.
+  for (const day of schedule) {
+    for (let iter = 0; iter < 8; iter++) {
+      const ratio = (m: PlannedMeal) => m.nutrients.kcal / Math.max(1, m.targetKcal);
+      const sorted = [...day.meals].sort((a, b) => ratio(a) - ratio(b));
+      const lean = sorted[0];
+      const rich = sorted[sorted.length - 1];
+      // разрыв меньше 40 процентных пунктов — на глаз незаметен
+      if (ratio(rich) - ratio(lean) < 0.4) break;
+
+      let moved = false;
+      for (let k = rich.dishes.length - 1; k >= 0; k--) {
+        const dish = rich.dishes[k];
+        // блюдо должно подходить принимающему приёму
+        if (!dish.recipe.slots.includes(lean.slot)) continue;
+        // и не создавать дубль
+        if (lean.dishes.some((x) => x.recipe.id === dish.recipe.id)) continue;
+        // нельзя оголять приём-донор
+        if (rich.dishes.length === 1) continue;
+        // нельзя уносить основу приёма, если она единственная
+        const coreHere = ROLE_GROUP_MAP[dish.recipe.role] ?? dish.recipe.role;
+        const coreRoles = CORE_ROLES[rich.slot] ?? [];
+        if (coreRoles.includes(dish.recipe.role)) {
+          const other = rich.dishes.some(
+            (x, xi) => xi !== k && coreRoles.includes(x.recipe.role),
+          );
+          if (!other) continue;
+        }
+        void coreHere;
+
+        const kcal = dish.stats.nutrients.kcal * dish.portions;
+        // перенос не должен перевернуть картину
+        if (lean.nutrients.kcal + kcal > rich.nutrients.kcal - kcal) continue;
+
+        rich.dishes.splice(k, 1);
+        addTo(rich.nutrients, dish.stats.nutrients, -dish.portions);
+        lean.dishes.push({ ...dish });
+        addTo(lean.nutrients, dish.stats.nutrients, dish.portions);
+        // время готовки остаётся на том же дне — переносим внутри него,
+        // поэтому day.minutes не меняется, только распределение по приёмам
+        if (dish.cooked) {
+          rich.minutes = Math.max(0, rich.minutes - dish.recipe.minutes);
+          lean.minutes += dish.recipe.minutes;
+        }
+        moved = true;
+        break;
+      }
+      if (!moved) break;
+    }
+  }
+
   const unplaced = [...remaining.values()]
     .filter((x) => x.portions > 0)
     .map((x) => ({ recipe: x.stats.recipe, portions: x.portions }));

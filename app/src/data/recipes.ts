@@ -17,7 +17,7 @@ export const RECIPES: Recipe[] = [
     id: 'oat_porridge_milk',
     name: 'Овсяная каша на молоке',
     role: 'porridge',
-    slots: ['breakfast'],
+    slots: ['breakfast', 'dinner'],
     minutes: 15,
     batchPortions: 2,
     keepsDays: 1,
@@ -49,7 +49,7 @@ export const RECIPES: Recipe[] = [
     id: 'millet_porridge',
     name: 'Пшённая каша на молоке',
     role: 'porridge',
-    slots: ['breakfast'],
+    slots: ['breakfast', 'dinner'],
     minutes: 30,
     batchPortions: 3,
     keepsDays: 2,
@@ -66,7 +66,7 @@ export const RECIPES: Recipe[] = [
     id: 'semolina_porridge',
     name: 'Манная каша',
     role: 'porridge',
-    slots: ['breakfast'],
+    slots: ['breakfast', 'dinner'],
     minutes: 12,
     batchPortions: 2,
     keepsDays: 1,
@@ -843,7 +843,7 @@ export const RECIPES: Recipe[] = [
     id: 'porridge_with_egg',
     name: 'Каша с яйцом',
     role: 'main',
-    slots: ['breakfast'],
+    slots: ['breakfast', 'dinner'],
     minutes: 20,
     batchPortions: 2,
     keepsDays: 1,
@@ -932,7 +932,7 @@ export const RECIPES: Recipe[] = [
     id: 'oatmeal_apricots',
     name: 'Овсянка с курагой',
     role: 'porridge',
-    slots: ['breakfast'],
+    slots: ['breakfast', 'dinner'],
     minutes: 15,
     batchPortions: 2,
     keepsDays: 1,
@@ -1401,7 +1401,7 @@ export const RECIPES: Recipe[] = [
 
   // ═══════════ Завтраки ═══════════
   {
-    id: 'buckwheat_flakes_porridge', name: 'Гречневые хлопья с ягодами', role: 'porridge', slots: ['breakfast'],
+    id: 'buckwheat_flakes_porridge', name: 'Гречневые хлопья с ягодами', role: 'porridge', slots: ['breakfast', 'dinner'],
     minutes: 12, batchPortions: 2, keepsDays: 1, tags: ['vegetarian', 'gluten-free', 'quick'],
     ingredients: [
       { productId: 'buckwheat_flakes', grams: 55, method: 'boiled' },
@@ -1411,7 +1411,7 @@ export const RECIPES: Recipe[] = [
     ],
   },
   {
-    id: 'rice_porridge_milk', name: 'Рисовая каша на молоке', role: 'porridge', slots: ['breakfast'],
+    id: 'rice_porridge_milk', name: 'Рисовая каша на молоке', role: 'porridge', slots: ['breakfast', 'dinner'],
     minutes: 30, batchPortions: 3, keepsDays: 2, tags: ['vegetarian', 'gluten-free'],
     ingredients: [
       { productId: 'rice', grams: 60, method: 'boiled' },
@@ -1422,7 +1422,7 @@ export const RECIPES: Recipe[] = [
     ],
   },
   {
-    id: 'oatmeal_banana_nuts', name: 'Овсянка с бананом и орехами', role: 'porridge', slots: ['breakfast'],
+    id: 'oatmeal_banana_nuts', name: 'Овсянка с бананом и орехами', role: 'porridge', slots: ['breakfast', 'dinner'],
     minutes: 12, batchPortions: 2, keepsDays: 1, tags: ['vegetarian', 'quick'],
     ingredients: [
       { productId: 'oat_flakes_instant', grams: 60, method: 'boiled' },
@@ -1456,7 +1456,7 @@ export const RECIPES: Recipe[] = [
     ],
   },
   {
-    id: 'milk_soup_vermicelli', name: 'Молочный суп с вермишелью', role: 'porridge', slots: ['breakfast'],
+    id: 'milk_soup_vermicelli', name: 'Молочный суп с вермишелью', role: 'porridge', slots: ['breakfast', 'dinner'],
     minutes: 20, batchPortions: 3, keepsDays: 1, tags: ['vegetarian'],
     ingredients: [
       { productId: 'vermicelli', grams: 45, method: 'boiled' },
@@ -1988,7 +1988,7 @@ export const RECIPES: Recipe[] = [
   },
   {
     id: 'millet_pumpkin', name: 'Пшённая каша с тыквой', role: 'porridge',
-    slots: ['breakfast'], minutes: 35, batchPortions: 3, keepsDays: 2,
+    slots: ['breakfast', 'dinner'], minutes: 35, batchPortions: 3, keepsDays: 2,
     requires: ['stove'],
     tags: ['vegetarian', 'gluten-free'],
     ingredients: [
