@@ -581,6 +581,7 @@ export const PRODUCTS: Product[] = [
     packSizes: [1000], shelfLifeDays: 4, perishable: true,
   }),
   p('pork_ribs', 'Свиные рёбра', 'meat', 278, 15.5, 24.0, 0.0, 390, {
+    measures: [pieceMeasure(120, 'кусок')],
     wasteRatio: 0.3, yields: { baked: 0.68, stewed: 0.65 },
     packSizes: [1000], shelfLifeDays: 4, perishable: true,
   }),
@@ -615,6 +616,7 @@ export const PRODUCTS: Product[] = [
     packSizes: [1000], shelfLifeDays: 4, perishable: true, tags: ['gluten-free'],
   }),
   p('capelin', 'Мойва', 'fish', 157, 13.4, 11.5, 0.0, 195, {
+    measures: [pieceMeasure(35, 'шт')],
     wasteRatio: 0.25, yields: { fried: 0.75, baked: 0.78 },
     packSizes: [500, 1000], shelfLifeDays: 90, tags: ['gluten-free'],
   }),
@@ -623,6 +625,7 @@ export const PRODUCTS: Product[] = [
     packSizes: [240], shelfLifeDays: 720, tags: ['gluten-free'],
   }),
   p('squid', 'Кальмар', 'fish', 100, 18.0, 2.2, 0.0, 550, {
+    measures: [pieceMeasure(120, 'тушка')],
     wasteRatio: 0.2, yields: { boiled: 0.65 },
     packSizes: [500, 1000], shelfLifeDays: 90, tags: ['gluten-free'],
   }),
@@ -802,6 +805,284 @@ export const PRODUCTS: Product[] = [
   p('jam', 'Варенье', 'sweet', 271, 0.3, 0.1, 68.2, 420, {
     measures: [volumeMeasure('tsp', 1.4), volumeMeasure('tbsp', 1.4)],
     packSizes: [350, 500], shelfLifeDays: 60, tags: ['vegan', 'condiment'],
+  }),
+
+  // ═══════════════ РАСШИРЕНИЕ БАЗЫ ═══════════════
+  //
+  // Продукты добавлены под три задачи, выявленные при работе над
+  // режимами рациона:
+  //   1) экономному режиму не хватало ДЕШЁВОГО БЕЛКА и овощей
+  //      длительного хранения — без них он скатывается в крупы;
+  //   2) свободному режиму нечего было предложить за деньги —
+  //      база обрывалась на говядине и форели;
+  //   3) специй не было вовсе, из-за чего все блюда «пресные»
+  //      и однообразные по вкусу при одинаковом составе.
+
+  // ───────── Специи и приправы ─────────
+  // Расходуются граммами, на бюджет почти не влияют, но именно они
+  // отличают «варёную куриную грудку» от «курицы карри».
+  p('black_pepper', 'Перец чёрный молотый', 'other', 251, 10.4, 3.3, 38.7, 1400, {
+    measures: [volumeMeasure('tsp', 0.5)],
+    packSizes: [20, 50], shelfLifeDays: 730, tags: ['vegan', 'gluten-free', 'condiment'],
+  }),
+  p('bay_leaf', 'Лавровый лист', 'other', 313, 7.6, 8.4, 48.7, 1200, {
+    measures: [pieceMeasure(1, 'лист')],
+    packSizes: [10, 20], shelfLifeDays: 730, tags: ['vegan', 'gluten-free', 'condiment'],
+  }),
+  p('paprika', 'Паприка молотая', 'other', 282, 14.1, 13.0, 34.0, 900, {
+    measures: [volumeMeasure('tsp', 0.5)],
+    packSizes: [30, 50], shelfLifeDays: 730, tags: ['vegan', 'gluten-free', 'condiment'],
+  }),
+  p('curry', 'Карри (смесь)', 'other', 325, 12.7, 13.8, 36.5, 1100, {
+    measures: [volumeMeasure('tsp', 0.5)],
+    packSizes: [30, 50], shelfLifeDays: 730, tags: ['vegan', 'gluten-free', 'condiment'],
+  }),
+  p('herbs_dry', 'Травы сушёные (прованские)', 'other', 265, 9.0, 7.4, 42.0, 950, {
+    measures: [volumeMeasure('tsp', 0.3)],
+    packSizes: [10, 30], shelfLifeDays: 730, tags: ['vegan', 'gluten-free', 'condiment'],
+  }),
+  p('vinegar', 'Уксус столовый 9%', 'other', 11, 0.0, 0.0, 3.0, 90, {
+    measures: [volumeMeasure('tbsp', 1.0)],
+    packSizes: [500], shelfLifeDays: 730, tags: ['vegan', 'gluten-free', 'condiment'],
+  }),
+  p('soy_sauce', 'Соевый соус', 'other', 50, 6.0, 0.0, 6.6, 420, {
+    measures: [volumeMeasure('tbsp', 1.1)],
+    packSizes: [200, 500], shelfLifeDays: 365, tags: ['vegan', 'condiment'],
+  }),
+  p('mustard', 'Горчица', 'other', 143, 9.9, 12.7, 5.3, 320, {
+    measures: [volumeMeasure('tsp', 1.0)],
+    packSizes: [180, 250], shelfLifeDays: 180, tags: ['vegan', 'gluten-free', 'condiment'],
+  }),
+  p('baking_powder', 'Разрыхлитель', 'other', 79, 0.0, 0.0, 19.8, 800, {
+    measures: [volumeMeasure('tsp', 0.6)],
+    packSizes: [10, 100], shelfLifeDays: 730, tags: ['vegan', 'condiment'],
+  }),
+  p('yeast_dry', 'Дрожжи сухие', 'other', 325, 40.4, 6.0, 24.0, 1300, {
+    measures: [volumeMeasure('tsp', 0.4)],
+    packSizes: [11, 100], shelfLifeDays: 730, tags: ['vegan', 'condiment'],
+  }),
+
+  // ───────── Дешёвый белок для экономного режима ─────────
+  p('chicken_thigh', 'Бёдра куриные', 'meat', 211, 16.8, 15.6, 0.0, 265, {
+    wasteRatio: 0.15, yields: { boiled: 0.62, fried: 0.6, baked: 0.65, stewed: 0.65 },
+    measures: [pieceMeasure(120, 'шт')],
+    packSizes: [1000], shelfLifeDays: 5, perishable: true, tags: ['gluten-free'],
+  }),
+  p('chicken_back', 'Куриные спинки (на бульон)', 'meat', 168, 14.0, 12.5, 0.0, 120, {
+    wasteRatio: 0.4, yields: { boiled: 0.55 },
+    // Мера обязательна: без неё суточная порция показывается голыми
+    // граммами («90 г в день»), а человек берёт спинки штуками.
+    measures: [pieceMeasure(180, 'шт')],
+    packSizes: [1000], shelfLifeDays: 4, perishable: true, tags: ['gluten-free'],
+  }),
+  p('pork_shoulder', 'Свиная лопатка', 'meat', 257, 16.4, 21.2, 0.0, 395, {
+    measures: [pieceMeasure(150, 'кусок')],
+    wasteRatio: 0.08, yields: { boiled: 0.6, fried: 0.58, baked: 0.62, stewed: 0.63 },
+    packSizes: [1000], shelfLifeDays: 5, perishable: true, tags: ['gluten-free'],
+  }),
+  p('mince_chicken', 'Фарш куриный', 'meat', 143, 17.4, 8.1, 0.0, 340, {
+    measures: [volumeMeasure('tbsp', 0.9)],
+    yields: { fried: 0.7, stewed: 0.72, baked: 0.72 },
+    packSizes: [400, 500, 1000], shelfLifeDays: 2, perishable: true, tags: ['gluten-free'],
+  }),
+  p('heart_chicken', 'Куриные сердечки', 'meat', 158, 15.8, 10.3, 0.8, 300, {
+    measures: [pieceMeasure(8, 'шт')],
+    yields: { boiled: 0.7, stewed: 0.7, fried: 0.68 },
+    packSizes: [500, 1000], shelfLifeDays: 3, perishable: true, tags: ['gluten-free'],
+  }),
+  p('sprats_canned', 'Килька в томате', 'fish', 148, 12.6, 8.5, 4.6, 260, {
+    measures: [packMeasure(240, 'банка 240 г')],
+    packSizes: [240], shelfLifeDays: 730, tags: ['gluten-free'],
+  }),
+  p('sardine_canned', 'Сардина консервированная', 'fish', 188, 19.0, 12.0, 0.0, 340, {
+    measures: [packMeasure(240, 'банка 240 г')],
+    packSizes: [240], shelfLifeDays: 730, tags: ['gluten-free'],
+  }),
+  p('pink_salmon', 'Горбуша мороженая', 'fish', 142, 20.5, 6.5, 0.0, 560, {
+    measures: [pieceMeasure(150, 'стейк')],
+    wasteRatio: 0.25, yields: { boiled: 0.79, fried: 0.78, baked: 0.8 },
+    packSizes: [1000], shelfLifeDays: 90, tags: ['gluten-free'],
+  }),
+  p('cod', 'Треска мороженая', 'fish', 78, 17.7, 0.7, 0.0, 480, {
+    measures: [pieceMeasure(150, 'филе')],
+    wasteRatio: 0.2, yields: { boiled: 0.78, fried: 0.77, baked: 0.79 },
+    packSizes: [1000], shelfLifeDays: 90, tags: ['gluten-free'],
+  }),
+  p('tofu', 'Тофу', 'legume', 76, 8.1, 4.8, 1.9, 590, {
+    measures: [pieceMeasure(100, 'кусок')],
+    packSizes: [250, 400], shelfLifeDays: 14, perishable: true,
+    tags: ['vegan', 'gluten-free'],
+  }),
+
+  // ───────── Молочное ─────────
+  p('cottage_cheese_grainy', 'Творог зернёный', 'dairy', 105, 12.7, 4.0, 3.5, 470, {
+    measures: [packMeasure(150, 'упак. 150 г'), volumeMeasure('tbsp', 0.9)],
+    packSizes: [150, 350], shelfLifeDays: 7, perishable: true, tags: ['gluten-free'],
+  }),
+  p('cheese_cheap', 'Сыр «Российский» весовой', 'dairy', 337, 22.0, 27.0, 0.5, 740, {
+    measures: [pieceMeasure(25, 'ломтик')],
+    packSizes: [200, 400], shelfLifeDays: 30, tags: ['gluten-free'],
+  }),
+  p('mozzarella', 'Моцарелла', 'dairy', 240, 18.0, 18.0, 2.2, 980, {
+    measures: [pieceMeasure(125, 'шарик')],
+    packSizes: [125, 250], shelfLifeDays: 20, perishable: true,
+    tags: ['gluten-free', 'delicacy'],
+  }),
+  p('butter_82', 'Масло сливочное 82.5%', 'fat', 748, 0.5, 82.5, 0.8, 1290, {
+    measures: [volumeMeasure('tsp', 0.9), volumeMeasure('tbsp', 0.9)],
+    packSizes: [180, 200], shelfLifeDays: 30, tags: ['gluten-free', 'condiment'],
+  }),
+  p('milk_powder', 'Молоко сухое', 'dairy', 476, 25.6, 25.0, 39.4, 690, {
+    measures: [volumeMeasure('tbsp', 0.5)],
+    packSizes: [400, 1000], shelfLifeDays: 240, tags: ['gluten-free'],
+  }),
+
+  // ───────── Овощи и фрукты длительного хранения ─────────
+  // Экономному режиму критично: свежие овощи дороги и портятся,
+  // а замороженные и корнеплоды дают клетчатку круглый год.
+  p('frozen_broccoli', 'Брокколи замороженная', 'vegetable', 28, 3.0, 0.4, 4.0, 290, {
+    measures: [volumeMeasure('glass', 0.5)],
+    fiber: 2.6, yields: { boiled: 0.95 },
+    packSizes: [400, 900], shelfLifeDays: 365, tags: ['vegan', 'gluten-free'],
+  }),
+  p('frozen_spinach', 'Шпинат замороженный', 'vegetable', 23, 2.9, 0.3, 2.0, 260, {
+    measures: [volumeMeasure('glass', 0.6)],
+    fiber: 2.2, yields: { boiled: 0.9, stewed: 0.9 },
+    packSizes: [300, 400], shelfLifeDays: 365, tags: ['vegan', 'gluten-free'],
+  }),
+  p('frozen_green_beans', 'Стручковая фасоль замороженная', 'vegetable', 31, 2.5, 0.3, 3.6, 240, {
+    measures: [volumeMeasure('glass', 0.55)],
+    fiber: 3.4, yields: { boiled: 0.95, fried: 0.9 },
+    packSizes: [400, 900], shelfLifeDays: 365, tags: ['vegan', 'gluten-free'],
+  }),
+  p('turnip', 'Репа', 'vegetable', 32, 1.5, 0.1, 6.2, 90, {
+    measures: [pieceMeasure(130, 'шт')],
+    fiber: 1.9, wasteRatio: 0.2, yields: { boiled: 0.9, baked: 0.85 },
+    packSizes: [1000], shelfLifeDays: 90, tags: ['vegan', 'gluten-free'],
+  }),
+  p('daikon', 'Дайкон', 'vegetable', 21, 1.2, 0.0, 4.1, 150, {
+    measures: [pieceMeasure(250, 'шт')],
+    fiber: 1.6, wasteRatio: 0.15,
+    packSizes: [1000], shelfLifeDays: 45, tags: ['vegan', 'gluten-free'],
+  }),
+  p('celery_root', 'Сельдерей корневой', 'vegetable', 34, 1.3, 0.3, 6.5, 220, {
+    measures: [pieceMeasure(300, 'шт')],
+    fiber: 1.8, wasteRatio: 0.25, yields: { boiled: 0.9, stewed: 0.88 },
+    packSizes: [1000], shelfLifeDays: 60, tags: ['vegan', 'gluten-free'],
+  }),
+  p('tomato_canned', 'Помидоры в собственном соку', 'vegetable', 21, 1.1, 0.1, 3.5, 210, {
+    fiber: 1.0, organicAcids: 0.8,
+    measures: [packMeasure(400, 'банка 400 г')],
+    packSizes: [400, 800], shelfLifeDays: 730, tags: ['vegan', 'gluten-free'],
+  }),
+  p('grapefruit', 'Грейпфрут', 'fruit', 35, 0.7, 0.2, 6.5, 230, {
+    fiber: 1.8, organicAcids: 1.7, wasteRatio: 0.3,
+    measures: [pieceMeasure(400, 'шт')],
+    packSizes: [1000], shelfLifeDays: 21, tags: ['vegan', 'gluten-free'],
+  }),
+  p('watermelon', 'Арбуз', 'fruit', 27, 0.6, 0.1, 5.8, 60, {
+    measures: [pieceMeasure(300, 'долька')],
+    fiber: 0.4, wasteRatio: 0.4,
+    packSizes: [1000], shelfLifeDays: 10, tags: ['vegan', 'gluten-free'],
+  }),
+  p('grapes', 'Виноград', 'fruit', 65, 0.6, 0.2, 15.4, 340, {
+    measures: [volumeMeasure('glass', 0.8)],
+    fiber: 1.6, organicAcids: 0.8,
+    packSizes: [1000], shelfLifeDays: 10, perishable: true, tags: ['vegan', 'gluten-free'],
+  }),
+  p('dates', 'Финики', 'fruit', 292, 2.5, 0.5, 69.2, 560, {
+    fiber: 6.0, measures: [pieceMeasure(8, 'шт')],
+    packSizes: [200, 500], shelfLifeDays: 365, tags: ['vegan', 'gluten-free'],
+  }),
+
+  // ───────── Крупы и гарниры ─────────
+  p('rice_brown', 'Рис бурый', 'grain', 337, 7.4, 1.8, 72.9, 240, {
+    fiber: 3.4, yields: { boiled: 2.8 },
+    measures: [volumeMeasure('glass', 0.95)],
+    packSizes: [500, 900], shelfLifeDays: 365, tags: ['vegan', 'gluten-free'],
+  }),
+  p('quinoa', 'Киноа', 'grain', 368, 14.1, 6.1, 57.2, 890, {
+    fiber: 7.0, yields: { boiled: 3.0 },
+    measures: [volumeMeasure('glass', 0.85)],
+    packSizes: [250, 500], shelfLifeDays: 365,
+    tags: ['vegan', 'gluten-free', 'delicacy'],
+  }),
+  p('pasta_durum', 'Макароны из твёрдых сортов', 'grain', 348, 12.5, 1.4, 70.5, 245, {
+    measures: [volumeMeasure('glass', 0.45)],
+    fiber: 3.2, yields: { boiled: 2.6 },
+    packSizes: [400, 500], shelfLifeDays: 730, tags: ['vegan'],
+  }),
+  p('noodles_egg', 'Лапша яичная', 'grain', 384, 11.3, 3.0, 76.0, 280, {
+    measures: [volumeMeasure('glass', 0.4)],
+    yields: { boiled: 2.5 },
+    packSizes: [400, 500], shelfLifeDays: 365, tags: ['vegetarian'],
+  }),
+  p('oatmeal_whole', 'Овсяная крупа цельная', 'grain', 342, 12.3, 6.1, 59.5, 120, {
+    fiber: 8.0, yields: { boiled: 3.0 },
+    measures: [volumeMeasure('glass', 0.8)],
+    packSizes: [500, 800], shelfLifeDays: 365, tags: ['vegan'],
+  }),
+
+  // ───────── Свободный режим: качество и интерес ─────────
+  p('beef_tenderloin', 'Говяжья вырезка', 'meat', 187, 20.2, 11.0, 0.0, 1350, {
+    yields: { fried: 0.62, baked: 0.65 },
+    measures: [pieceMeasure(180, 'стейк')],
+    packSizes: [500, 1000], shelfLifeDays: 5, perishable: true,
+    tags: ['gluten-free', 'delicacy'],
+  }),
+  p('duck_breast', 'Утиная грудка', 'meat', 248, 18.3, 19.0, 0.0, 1150, {
+    yields: { fried: 0.68, baked: 0.7 },
+    measures: [pieceMeasure(200, 'шт')],
+    packSizes: [500, 1000], shelfLifeDays: 5, perishable: true,
+    tags: ['gluten-free', 'delicacy'],
+  }),
+  p('shrimp', 'Креветки варёно-мороженые', 'fish', 95, 20.5, 1.2, 0.0, 1250, {
+    measures: [volumeMeasure('glass', 0.6)],
+    wasteRatio: 0.35, yields: { boiled: 0.85, fried: 0.8 },
+    packSizes: [500, 1000], shelfLifeDays: 180,
+    tags: ['gluten-free', 'delicacy'],
+  }),
+  p('salmon_fillet', 'Лосось (филе)', 'fish', 208, 20.0, 13.6, 0.0, 2300, {
+    yields: { baked: 0.8, fried: 0.78 },
+    measures: [pieceMeasure(150, 'филе')],
+    packSizes: [500, 1000], shelfLifeDays: 4, perishable: true,
+    tags: ['gluten-free', 'delicacy'],
+  }),
+  p('avocado', 'Авокадо', 'fruit', 160, 2.0, 14.7, 1.8, 890, {
+    fiber: 6.7, wasteRatio: 0.28,
+    measures: [pieceMeasure(200, 'шт')],
+    packSizes: [1000], shelfLifeDays: 10, perishable: true,
+    tags: ['vegan', 'gluten-free', 'delicacy'],
+  }),
+  p('almonds', 'Миндаль', 'nut', 609, 18.6, 53.7, 13.0, 1450, {
+    fiber: 12.3, measures: [volumeMeasure('tbsp', 0.6)],
+    packSizes: [150, 300], shelfLifeDays: 180,
+    tags: ['vegan', 'gluten-free', 'delicacy'],
+  }),
+  p('cashew', 'Кешью', 'nut', 553, 18.2, 43.9, 30.2, 1390, {
+    fiber: 3.3, measures: [volumeMeasure('tbsp', 0.6)],
+    packSizes: [150, 300], shelfLifeDays: 180,
+    tags: ['vegan', 'gluten-free', 'delicacy'],
+  }),
+  p('feta', 'Сыр фета', 'dairy', 264, 14.2, 21.3, 4.1, 1150, {
+    measures: [pieceMeasure(30, 'кусочек')],
+    packSizes: [200, 250], shelfLifeDays: 20, perishable: true,
+    tags: ['gluten-free', 'delicacy'],
+  }),
+  p('parmesan', 'Пармезан', 'dairy', 392, 35.8, 25.8, 3.2, 2400, {
+    measures: [volumeMeasure('tbsp', 0.4)],
+    packSizes: [150, 200], shelfLifeDays: 90,
+    tags: ['gluten-free', 'delicacy', 'condiment'],
+  }),
+  p('olives', 'Оливки', 'vegetable', 115, 0.8, 10.7, 6.3, 620, {
+    fiber: 3.2, measures: [packMeasure(300, 'банка 300 г')],
+    packSizes: [300], shelfLifeDays: 365,
+    tags: ['vegan', 'gluten-free', 'delicacy'],
+  }),
+  p('pine_nuts', 'Кедровые орехи', 'nut', 673, 13.7, 68.4, 13.1, 3900, {
+    fiber: 3.7, measures: [volumeMeasure('tbsp', 0.6)],
+    packSizes: [100, 200], shelfLifeDays: 180,
+    tags: ['vegan', 'gluten-free', 'delicacy'],
   }),
 ];
 

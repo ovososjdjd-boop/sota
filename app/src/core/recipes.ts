@@ -11,6 +11,7 @@
 import type { Nutrients, Product, ProductCategory, CookingMethod } from './types';
 import { PRODUCT_BY_ID } from '../data/products';
 import { grossFromNet, pickMeasure } from './measures';
+import type { Equipment } from './equipment';
 
 /** Приём пищи, для которого уместно блюдо. */
 export type MealSlot = 'breakfast' | 'lunch' | 'dinner' | 'snack';
@@ -87,6 +88,16 @@ export interface Recipe {
    * человек видит «Свинина тушёная, 622 ккал» и не знает, что делать.
    */
   steps?: string[];
+  /**
+   * Техника, БЕЗ КОТОРОЙ блюдо не приготовить.
+   *
+   * Пусто — значит нужен только нож и, может быть, плита, которая
+   * есть почти у всех. Указываем только жёсткие требования: духовку
+   * для запеканки, блендер для супа-пюре. Человеку без духовки такие
+   * блюда не предлагаются вовсе — рецепт, который нечем приготовить,
+   * бесполезен независимо от того, как он хорош по КБЖУ и цене.
+   */
+  requires?: Equipment[];
   tags: string[];
 }
 
