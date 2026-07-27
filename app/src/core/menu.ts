@@ -657,16 +657,48 @@ function balanceDays(
 ): void {
   const fill = (d: PlannedDay) => d.nutrients.kcal / Math.max(1, d.targetKcal);
 
-  for (let iter = 0; iter < 60; iter++) {
+  for (let iter = 0; iter < 200; iter++) {
     const sorted = [...schedule].sort((a, b) => fill(a) - fill(b));
     const hungry = sorted[0];
-    const full = sorted[sorted.length - 1];
-    // разрыв меньше 25 процентных пунктов — уже приемлемо
-    if (fill(full) - fill(hungry) < 0.25) break;
+    const fullest = sorted[sorted.length - 1];
+    // ПОРОГ 0.12, А НЕ 0.25, И 200 ИТЕРАЦИЙ ВМЕСТО 60.
+    //
+    // Найденный дефект: 25 процентных пунктов при цели 2506 ккал —
+    // это разрыв в 620 ккал, целый приём пищи. Балансировка объявляла
+    // такой день «уже приемлемым» и останавливалась, оставляя
+    // дни на 1385 ккал рядом с днями на 2962.
+    //
+    // Шестидесяти итераций тоже не хватало: каждая переставляет одну
+    // порцию, а перекосов на месячном плане больше. Цикл всё равно
+    // выходит по условию сходимости, так что запас безопасен.
+    if (fill(fullest) - fill(hungry) < 0.12) break;
+
+    // ── ДОНОРА ИЩЕМ РЯДОМ, А НЕ САМОГО СЫТОГО ──
+    //
+    // НАЙДЕННЫЙ ДЕФЕКТ (scripts/balnear.ts). Донором всегда брался
+    // самый сытый день месяца — например, тридцатый для первого.
+    // Расстояние 29 дней: еда столько не хранится, и почти каждый
+    // перенос упирался в «нет времени у голодного дня» (5 отказов
+    // из 7). Голодные дни на 1289 ккал так и оставались, хотя сытый
+    // сосед стоял через два дня.
+    //
+    // Перебираем доноров от ближних к дальним: чем ближе день,
+    // тем больше у него блюд, которые доживут до переноса,
+    // и тем меньше ломается структура недели.
+    const donors = schedule
+      .filter((d) => d !== hungry && fill(d) > 1.05)
+      .sort(
+        (a, b) =>
+          Math.abs(a.index - hungry.index) - Math.abs(b.index - hungry.index) ||
+          fill(b) - fill(a),
+      );
+    if (donors.length === 0) break;
 
     let moved = false;
-    // ищем в сытом дне порцию, которая поместится в голодный
-    for (const meal of full.meals) {
+    for (const full of donors) {
+      if (moved) break;
+      // ищем в сытом дне порцию, которая поместится в голодный
+      for (const meal of full.meals) {
       for (let k = meal.dishes.length - 1; k >= 0; k--) {
         const dish = meal.dishes[k];
         // привычки не двигаем: «кофе каждый день» — обещание
@@ -718,34 +750,52 @@ function balanceDays(
         // 45-минутный суп в день, где плита уже занята на 80 минут.
         // Выравнивание калорий не даёт права нарушать обещание
         // по времени: человек настроил «90 минут» и получал 120.
-        if (
-          dish.cooked &&
-          maxMinutesPerDay &&
+        //
+        // НО: если в голодном дне времени нет, это ещё не приговор.
+        // Замер (scripts/baltrace.ts) показал, что 5 из 7 отказов
+        // в переносе были именно «нет времени у голодного», и дни
+        // так и оставались на 1289 ккал рядом с днями на 3171.
+        //
+        // Блюдо, которое ХРАНИТСЯ, можно приготовить в день-донор
+        // (там плита уже занята этим блюдом) и просто принести
+        // готовым — это разогрев, он времени почти не стоит.
+        // Именно так поступает человек: варит кастрюлю в воскресенье
+        // и ест из неё в понедельник.
+        const noTimeInHungry =
+          !!maxMinutesPerDay &&
           maxMinutesPerDay > 0 &&
-          hungry.minutes + dish.recipe.minutes > maxMinutesPerDay
-        ) {
-          continue;
-        }
+          hungry.minutes + dish.recipe.minutes > maxMinutesPerDay;
+        // приедет разогревом: готовка остаётся в дне-доноре
+        const asLeftovers =
+          dish.cooked &&
+          noTimeInHungry &&
+          dish.recipe.keepsDays > 0 &&
+          Math.abs(hungry.index - full.index) <= dish.recipe.keepsDays;
+        if (dish.cooked && noTimeInHungry && !asLeftovers) continue;
 
         meal.dishes.splice(k, 1);
         addTo(meal.nutrients, dish.stats.nutrients, -dish.portions);
         addTo(full.nutrients, dish.stats.nutrients, -dish.portions);
-        if (dish.cooked) {
+        // Время снимаем с донора, только если блюдо уезжает вместе
+        // с готовкой. При переезде «остатками» плита остаётся занятой
+        // здесь: кастрюля варится в этот день, а съедается в другой.
+        if (dish.cooked && !asLeftovers) {
           meal.minutes = Math.max(0, meal.minutes - dish.recipe.minutes);
           full.minutes = Math.max(0, full.minutes - dish.recipe.minutes);
         }
 
-        target.dishes.push({ ...dish });
+        target.dishes.push({ ...dish, cooked: dish.cooked && !asLeftovers });
         addTo(target.nutrients, dish.stats.nutrients, dish.portions);
         addTo(hungry.nutrients, dish.stats.nutrients, dish.portions);
-        if (dish.cooked) {
+        if (dish.cooked && !asLeftovers) {
           target.minutes += dish.recipe.minutes;
           hungry.minutes += dish.recipe.minutes;
         }
         moved = true;
         break;
       }
-      if (moved) break;
+        if (moved) break;
+      }
     }
     if (!moved) break;
   }
@@ -998,6 +1048,14 @@ function findCookDay(
     // Отдавать своё время соседу можно только тому, кто сам сыт.
     // Порог мягкий (70%): день ещё дозаполняется, и требовать
     // полной нормы значило бы запретить готовку впрок вовсе.
+    //
+    // ПРОВЕРЕНО И ОТВЕРГНУТО: резервировать время под каждый пустой
+    // приём донора (по 12-20 мин). Звучит логично — «пустой ужин это
+    // ещё не потраченные минуты», — но замер показал ухудшение по всем
+    // бюджетам сразу: голодных дней 3 → 5, потери 9 → 12 порций.
+    // Причина в том, что готовка впрок здесь не роскошь, а единственный
+    // способ уложиться в лимит: запретив её «на всякий случай»,
+    // мы теряем больше, чем спасаем. Мягкий порог работает лучше.
     const donor = schedule[d];
     const donorFill = donor.nutrients.kcal / Math.max(1, donor.targetKcal);
     const donorTimeLeft = maxMinutesPerDay - load - recipe.minutes;
