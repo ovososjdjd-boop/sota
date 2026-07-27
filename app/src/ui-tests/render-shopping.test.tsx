@@ -40,12 +40,14 @@ describe('экран покупок: закупка волнами', () => {
     await user.clear(budgetInput);
     await user.type(budgetInput, '15000');
     await user.click(screen.getByRole('button', { name: /Составить меню/i }));
-    await waitFor(() => expect(screen.getByText(/Меню на 30 дн/i)).toBeInTheDocument(), {
+    // getByText не находит текст, разбитый на несколько элементов
+    // («Меню на 30 дн.» и число рядом), поэтому ищем по всему body
+    await waitFor(() => expect(document.body.textContent).toMatch(/Меню на 30/), {
       timeout: 120000,
     });
 
     await user.click(screen.getByRole('button', { name: /Покупки/i }));
-    await waitFor(() => expect(screen.getByText(/К оплате/i)).toBeInTheDocument(), {
+    await waitFor(() => expect(document.body.textContent).toMatch(/К оплате/), {
       timeout: 60000,
     });
 

@@ -163,6 +163,82 @@ export function buildSchedule(
     });
   }
 
+  // ── ДЕСЕРТ РАЗМЕЩАЕТСЯ ПЕРВЫМ, А НЕ ПОСЛЕДНИМ ──
+  //
+  // НАЙДЕННЫЙ ДЕФЕКТ (поймал тест-страж «иногда сладкого»). Планировщик
+  // честно заказывал 7 порций блинов, а на тарелку попадало НОЛЬ.
+  // Причина не в весах и не в потолке сахара: десерт стоял в общей
+  // очереди раскладки и добирался до дней последним, когда время
+  // готовки уже разобрано. Замер: свободных щелей в днях 0-27 минут,
+  // а блины требуют 35. Место было по калориям, но не по времени.
+  //
+  // Сначала это чинилось отдельным проходом ПОСЛЕ основного цикла —
+  // не помогло по той же причине: поздно. Порядок и есть корень.
+  //
+  // Отзыв прямо об этом: «приложение как будто считает сладкое грехом,
+  // который надо спрятать в кашу». Пока десерт конкурирует с обедом
+  // за остатки времени, он проигрывает всегда — он не «основа приёма»
+  // и не закрывает калории.
+  //
+  // «Иногда сладкого» — обещание пользователю, ровно как привычка
+  // «кофе каждый день». Обещания резервируют место заранее.
+  // Ставим редко: не чаще раза в три дня, это радость, а не рацион.
+  {
+    const dessertDays = new Set<number>();
+    for (const entry of remaining.values()) {
+      if (entry.portions <= 0) continue;
+      const recipe = entry.stats.recipe;
+      if (!recipe.tags.includes('dessert')) continue;
+      const served = servedDays.get(recipe.id) ?? [];
+
+      // Шаг подачи: растягиваем порции на весь период, а не ставим
+      // подряд с первого дня. Первая версия давала блины в дни
+      // 1,3,5,7,9,11,13 и потом семнадцать дней без сладкого —
+      // человек живёт днём, а не средним по месяцу.
+      const step = Math.max(3, Math.floor(schedule.length / Math.max(1, entry.portions)));
+      const order = [...schedule].sort(
+        (a, b) => (a.index % step) - (b.index % step) || a.index - b.index,
+      );
+
+      for (const day of order) {
+        if (entry.portions <= 0) break;
+        if (served.includes(day.index)) continue;
+        if (
+          dessertDays.has(day.index) ||
+          dessertDays.has(day.index - 1) ||
+          dessertDays.has(day.index + 1)
+        ) {
+          continue;
+        }
+
+        const target = day.meals.find((m) => recipe.slots.includes(m.slot));
+        if (!target) continue;
+
+        // Время — по общим правилам. Обещание сладкого не даёт права
+        // нарушать обещание по времени готовки: и то, и другое человек
+        // настроил сам, и приложение не выбирает за него.
+        const cooked = chargeCookTime(
+          schedule,
+          day.index,
+          recipe.minutes,
+          maxMinutesPerDay,
+        );
+        if (!cooked) continue;
+
+        const serve = Math.min(entry.portions, eaters);
+        target.dishes.push({ recipe, stats: entry.stats, portions: serve, cooked });
+        addTo(target.nutrients, entry.stats.nutrients, serve);
+        addTo(day.nutrients, entry.stats.nutrients, serve);
+        target.minutes += recipe.minutes;
+        served.push(day.index);
+        servedDays.set(recipe.id, served);
+        dessertDays.add(day.index);
+        entry.portions -= serve;
+      }
+      if (entry.portions <= 0) remaining.delete(recipe.id);
+    }
+  }
+
   // Обход ПО СЛОТАМ, а не по блюдам.
   //
   // Раньше блюда размещались по очереди, и первые «съедали» лучшие места:
@@ -303,7 +379,16 @@ export function buildSchedule(
           const entryIsDaily = remaining.get(pick.stats.recipe.id)?.daily === true;
           if (entryIsDaily) {
             const serveDaily = Math.min(entry.portions, eaters);
-            const cookedD = true;
+            // Привычке даём послабление в 10 минут (см. chargeCookTime):
+            // человек сам попросил это каждый день, но и молча выходить
+            // за настроенный им же лимит нельзя.
+            const cookedD = chargeCookTime(
+              schedule,
+              day.index,
+              pick.stats.recipe.minutes,
+              maxMinutesPerDay,
+              10,
+            );
             meal.dishes.push({
               recipe: pick.stats.recipe,
               stats: pick.stats,
@@ -312,8 +397,7 @@ export function buildSchedule(
             });
             addTo(meal.nutrients, pick.stats.nutrients, serveDaily);
             addTo(day.nutrients, pick.stats.nutrients, serveDaily);
-            meal.minutes += pick.stats.recipe.minutes;
-            day.minutes += pick.stats.recipe.minutes;
+            if (cookedD) meal.minutes += pick.stats.recipe.minutes;
             const listD = servedDays.get(pick.stats.recipe.id) ?? [];
             listD.push(day.index);
             servedDays.set(pick.stats.recipe.id, listD);
@@ -346,11 +430,35 @@ export function buildSchedule(
             // Время пишем на тот день, когда плита реально занята.
             // При готовке впрок это может быть более ранний день —
             // иначе дневной лимит считался бы дважды за одну кастрюлю.
-            const cookDay =
-              findCookDay(schedule, pick.stats.recipe, day.index, maxMinutesPerDay) ??
-              day.index;
-            schedule[cookDay].minutes += pick.stats.recipe.minutes;
-            if (cookDay === day.index) meal.minutes += pick.stats.recipe.minutes;
+            //
+            // Здесь был дефект: `?? day.index`. Когда свободного дня
+            // не находилось, время всё равно записывалось на сегодня —
+            // поверх лимита. Так и появлялись дни по 120 минут при
+            // настройке «90». Теперь запись идёт через chargeCookTime,
+            // и невозможность приготовить честно признаётся: блюдо
+            // считается разогретым (кастрюля с прошлого раза),
+            // а не сваренным сверх бюджета времени.
+            const cookDay = findCookDay(
+              schedule,
+              pick.stats.recipe,
+              day.index,
+              maxMinutesPerDay,
+            );
+            const charged =
+              cookDay !== null &&
+              chargeCookTime(
+                schedule,
+                cookDay,
+                pick.stats.recipe.minutes,
+                maxMinutesPerDay,
+              );
+            if (charged && cookDay === day.index) {
+              meal.minutes += pick.stats.recipe.minutes;
+            }
+            if (!charged) {
+              // времени нет — подаём как разогрев, а не как готовку
+              meal.dishes[meal.dishes.length - 1].cooked = false;
+            }
           }
 
           const list = servedDays.get(pick.stats.recipe.id) ?? [];
@@ -391,11 +499,25 @@ export function buildSchedule(
       if (target.dishes.some((x) => x.recipe.id === recipe.id)) continue;
 
       const serve = Math.min(entry.portions, eaters);
-      target.dishes.push({ recipe, stats: entry.stats, portions: serve, cooked: true });
+      // Привычка сильнее лимита времени, но не безгранично: чашка кофе
+      // варится 4 минуты, и отказать в ней из-за бюджета — абсурд.
+      // Даём послабление в 10 минут: это привычка, а не готовка обеда.
+      const cookedHabit = chargeCookTime(
+        schedule,
+        day.index,
+        recipe.minutes,
+        maxMinutesPerDay,
+        10,
+      );
+      target.dishes.push({
+        recipe,
+        stats: entry.stats,
+        portions: serve,
+        cooked: cookedHabit,
+      });
       addTo(target.nutrients, entry.stats.nutrients, serve);
       addTo(day.nutrients, entry.stats.nutrients, serve);
-      target.minutes += recipe.minutes;
-      day.minutes += recipe.minutes;
+      if (cookedHabit) target.minutes += recipe.minutes;
       served.push(day.index);
       servedDays.set(recipe.id, served);
       entry.portions -= serve;
@@ -418,7 +540,7 @@ export function buildSchedule(
   // не дали: жадный алгоритм принимает решения, не зная будущего.
   // Поэтому последний шаг — прямой перенос: берём лишнюю порцию
   // из самого сытого дня и отдаём самому голодному.
-  balanceDays(schedule, eaters);
+  balanceDays(schedule, eaters, maxMinutesPerDay);
 
   const unplaced = [...remaining.values()]
     .filter((x) => x.portions > 0)
@@ -433,6 +555,72 @@ export function buildSchedule(
 }
 
 /**
+ * ЕДИНАЯ ТОЧКА УЧЁТА ВРЕМЕНИ ГОТОВКИ.
+ *
+ * НАЙДЕННЫЙ ДЕФЕКТ. Минуты дописывались в `day.minutes` из ЧЕТЫРЁХ
+ * разных мест: основной проход, проход привычек, уборщик остатков
+ * и балансировка. Проверял лимит только один из них, привычки писали
+ * время напрямую, а `balanceDays` даже не получала `maxMinutesPerDay`
+ * в аргументах — она переносила блюда между днями, не подозревая,
+ * что у дня есть бюджет времени.
+ *
+ * Результат: при лимите «90 минут» человек получал дни по 120.
+ * Обещание, которое он сам настроил, нарушалось молча.
+ *
+ * Это ровно та же болезнь, что уже была с правилом «три дня подряд»:
+ * инвариант проверялся в одном месте из трёх. Лечится так же —
+ * общей функцией, через которую обязаны проходить ВСЕ проходы.
+ * Тогда добавить новый проход и забыть про лимит физически нельзя.
+ *
+ * @returns true, если время удалось записать (лимит соблюдён)
+ */
+function chargeCookTime(
+  schedule: PlannedDay[],
+  dayIndex: number,
+  minutes: number,
+  maxMinutesPerDay?: number,
+  /**
+   * Допустимое превышение, мин. Пустой основной приём хуже, чем
+   * пять лишних минут: бутерброд или яичница — это не «готовка».
+   */
+  allowance = 0,
+): boolean {
+  if (minutes <= 0) return true;
+  const day = schedule[dayIndex];
+  if (!day) return false;
+  if (maxMinutesPerDay && maxMinutesPerDay > 0) {
+    if (day.minutes + minutes > maxMinutesPerDay + allowance) return false;
+  }
+  day.minutes += minutes;
+  return true;
+}
+
+/**
+ * Пойдёт ли блюдо третьим днём подряд.
+ *
+ * Правило вынесено в отдельную функцию, потому что проверять его
+ * нужно в ТРЁХ местах: основном проходе, уборщике остатков
+ * и балансировке дней. Раньше оно стояло только в основном проходе,
+ * и тест-страж поймал «Печень с рисом» в дни 16, 17, 18 — уборщик
+ * ставил её, не зная о запрете.
+ *
+ * Доесть вчерашнее — нормально. Третье утро подряд — надоело.
+ */
+function wouldBeThirdInARow(servedDays: number[], dayIndex: number): boolean {
+  const has = (d: number) => servedDays.includes(d);
+  // Проверять только «назад» недостаточно: раскладка ставит дни
+  // не по порядку. Трассировка поймала случай, когда блюдо шло
+  // в дни 17 и 19, а затем добавлялось в 18 — и получалось три подряд,
+  // хотя в момент вставки предыдущих двух дней подряд ещё не было.
+  // Смотрим все три окна вокруг дня.
+  return (
+    (has(dayIndex - 1) && has(dayIndex - 2)) || // ...X X [день]
+    (has(dayIndex - 1) && has(dayIndex + 1)) || // ...X [день] X
+    (has(dayIndex + 1) && has(dayIndex + 2)) //   ...[день] X X
+  );
+}
+
+/**
  * Выравнивание калорийности по дням переносом порций.
  *
  * Жадная раскладка не умеет смотреть в будущее: она принимает решение
@@ -444,7 +632,17 @@ export function buildSchedule(
  * Переносим только то, что не нарушает правил — блюдо не должно
  * оказаться дважды в одном дне и не должно уехать за срок хранения.
  */
-function balanceDays(schedule: PlannedDay[], eaters: number): void {
+function balanceDays(
+  schedule: PlannedDay[],
+  eaters: number,
+  /**
+   * Лимит готовки, мин/день. Раньше его тут не было вовсе — и функция
+   * молча ломала обещание по времени, перенося трудоёмкие блюда
+   * в уже загруженные дни. Выравнивание калорий не главнее лимита,
+   * который человек настроил сам.
+   */
+  maxMinutesPerDay?: number,
+): void {
   const fill = (d: PlannedDay) => d.nutrients.kcal / Math.max(1, d.targetKcal);
 
   for (let iter = 0; iter < 60; iter++) {
@@ -470,6 +668,14 @@ function balanceDays(schedule: PlannedDay[], eaters: number): void {
         if (hungry.meals.some((m) => m.dishes.some((x) => x.recipe.id === dish.recipe.id))) {
           continue;
         }
+        // ...и не должно стать третьим днём подряд после переноса
+        const servedElsewhere: number[] = [];
+        for (const d of schedule)
+          for (const m of d.meals)
+            if (m.dishes.some((x) => x.recipe.id === dish.recipe.id)) {
+              servedElsewhere.push(d.index);
+            }
+        if (wouldBeThirdInARow(servedElsewhere, hungry.index)) continue;
         // в сытом дне это единственное блюдо приёма — не оголяем приём
         if (meal.dishes.length === 1 && meal.slot !== 'snack') continue;
 
@@ -492,6 +698,22 @@ function balanceDays(schedule: PlannedDay[], eaters: number): void {
         // перенос не должен перевернуть картину: голодный день
         // не обязан стать сытнее донора
         if (hungry.nutrients.kcal + kcal > full.nutrients.kcal - kcal) continue;
+
+        // ...и не должен взорвать бюджет времени принимающего дня.
+        //
+        // НАЙДЕННЫЙ ДЕФЕКТ: balanceDays вообще не получала лимит
+        // в аргументах. Она честно выравнивала калории, перетаскивая
+        // 45-минутный суп в день, где плита уже занята на 80 минут.
+        // Выравнивание калорий не даёт права нарушать обещание
+        // по времени: человек настроил «90 минут» и получал 120.
+        if (
+          dish.cooked &&
+          maxMinutesPerDay &&
+          maxMinutesPerDay > 0 &&
+          hungry.minutes + dish.recipe.minutes > maxMinutesPerDay
+        ) {
+          continue;
+        }
 
         meal.dishes.splice(k, 1);
         addTo(meal.nutrients, dish.stats.nutrients, -dish.portions);
@@ -614,6 +836,9 @@ function sweepRemainder(
             // На финальной стадии minGap равен 1, и без явной проверки
             // уборщик мог поставить то же блюдо в обед и в ужин.
             if (served.includes(day.index)) continue;
+            // ...и не третьим днём подряд: тест-страж поймал здесь
+            // «Печень с рисом» в дни 16, 17, 18.
+            if (wouldBeThirdInARow(served, day.index)) continue;
 
             const group = ROLE_GROUP[recipe.role] ?? recipe.role;
             const sameGroup = meal.dishes.filter(
@@ -637,29 +862,54 @@ function sweepRemainder(
             // (фрукты, кефир, бутерброды) добавлять можно — иначе
             // приём останется пустым.
             let cookDayIndex = day.index;
+            /**
+             * Насколько можно выйти за лимит ради этого блюда.
+             *
+             * Ноль в общем случае: лимит — обещание пользователю.
+             * Послабление даётся только пустому основному приёму
+             * и только под быстрое блюдо: пустой ужин человек заметит
+             * острее, чем пять минут сверх бюджета. Раньше здесь
+             * стояло 15 минут «на всякий случай», и уборщик догонял
+             * день до 120 минут при настройке 90.
+             */
+            let charge = 0;
             if (maxMinutesPerDay && maxMinutesPerDay > 0 && cooked) {
-              // Пустой основной приём хуже небольшого превышения лимита.
-              // Для завтрака, обеда и ужина допускаем блюда до 15 минут
-              // сверх бюджета — это бутерброд или яичница, не готовка.
               const isMain = meal.slot !== 'snack';
               const isEmpty = meal.dishes.length === 0;
-              const allowance = isMain && isEmpty ? 15 : 5;
+              const allowance = isMain && isEmpty ? 10 : 0;
               const quick = recipe.minutes <= allowance;
               const found = findCookDay(schedule, recipe, day.index, maxMinutesPerDay);
               if (found !== null) {
                 cookDayIndex = found;
-              } else if (!quick) {
+              } else if (quick) {
+                charge = allowance;
+              } else {
                 continue;
               }
             }
             const serve = Math.min(entry.portions, eaters);
 
-            meal.dishes.push({ recipe, stats: entry.stats, portions: serve, cooked });
+            // Учёт времени — только через общую функцию: она одна знает
+            // про лимит, и добавить проход в обход неё нельзя.
+            const cookedHere =
+              cooked &&
+              chargeCookTime(
+                schedule,
+                cookDayIndex,
+                recipe.minutes,
+                maxMinutesPerDay,
+                charge,
+              );
+            meal.dishes.push({
+              recipe,
+              stats: entry.stats,
+              portions: serve,
+              cooked: cookedHere,
+            });
             addTo(meal.nutrients, entry.stats.nutrients, serve);
             addTo(day.nutrients, entry.stats.nutrients, serve);
-            if (cooked) {
-              schedule[cookDayIndex].minutes += recipe.minutes;
-              if (cookDayIndex === day.index) meal.minutes += recipe.minutes;
+            if (cookedHere && cookDayIndex === day.index) {
+              meal.minutes += recipe.minutes;
             }
 
             served.push(day.index);
@@ -921,11 +1171,10 @@ function pickDishForMeal(
       // что кастрюля живёт до третьего дня. Но человек ест не модель,
       // а кашу — и на третье утро подряд она надоедает.
       // Два дня подряд — доел вчерашнее. Три — уже однообразие.
-      if (canFinishLeftovers) {
-        const yesterday = served.includes(day.index - 1);
-        const beforeThat = served.includes(day.index - 2);
-        if (yesterday && beforeThat) continue;
-      }
+      // Проверка безусловная, а не только при доедании: блюдо может
+      // попасть третьим днём подряд и через обычную подачу, если
+      // правило неповторения ослаблено на поздних проходах.
+      if (wouldBeThirdInARow(served, day.index)) continue;
     }
 
     // две «углеводные основы» в одном приёме — не разнообразие, а ошибка

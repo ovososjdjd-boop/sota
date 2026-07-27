@@ -2863,7 +2863,7 @@ export const RECIPES: Recipe[] = [
   // не заменяет еду, а дополняет её.
   {
     id: 'charlotte_apple', name: 'Шарлотка с яблоками', role: 'snack',
-    slots: ['snack'], minutes: 45, batchPortions: 6, keepsDays: 3,
+    slots: ['snack', 'breakfast'], minutes: 45, batchPortions: 6, keepsDays: 3,
     requires: ['oven'],
     tags: ['vegetarian', 'dessert'],
     ingredients: [
@@ -2876,7 +2876,7 @@ export const RECIPES: Recipe[] = [
   },
   {
     id: 'curd_casserole_sweet', name: 'Творожная запеканка со сгущёнкой', role: 'snack',
-    slots: ['snack'], minutes: 40, batchPortions: 5, keepsDays: 3,
+    slots: ['snack', 'breakfast'], minutes: 40, batchPortions: 5, keepsDays: 3,
     requires: ['oven'],
     tags: ['vegetarian', 'dessert'],
     ingredients: [
@@ -2889,7 +2889,7 @@ export const RECIPES: Recipe[] = [
   },
   {
     id: 'pancakes_jam', name: 'Блины с вареньем', role: 'snack',
-    slots: ['snack'], minutes: 35, batchPortions: 4, keepsDays: 2,
+    slots: ['snack', 'breakfast'], minutes: 35, batchPortions: 4, keepsDays: 2,
     requires: ['stove'],
     tags: ['vegetarian', 'dessert'],
     ingredients: [
@@ -2923,7 +2923,7 @@ export const RECIPES: Recipe[] = [
   },
   {
     id: 'curd_berry_dessert', name: 'Творожный десерт с ягодами', role: 'snack',
-    slots: ['snack'], minutes: 5, batchPortions: 1, keepsDays: 0,
+    slots: ['snack', 'breakfast'], minutes: 5, batchPortions: 1, keepsDays: 0,
     requires: ['blender'],
     tags: ['vegetarian', 'gluten-free', 'dessert', 'no-cook', 'quick'],
     ingredients: [
