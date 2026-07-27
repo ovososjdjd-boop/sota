@@ -776,6 +776,81 @@ function buildDishModel(
     );
   }
 
+  // ── ТРЕБОВАНИЕ ПО КОНКРЕТНОМУ ПРОДУКТУ ──
+  //
+  // Отзыв: «Я отметил фарш любимым — он попал в ОДНО блюдо из 36.
+  // Двенадцать блюд с фаршем мне не показали ни разу».
+  //
+  // Причина: требование выше задано на КАТЕГОРИЮ («мясо»), а его
+  // прекрасно закрывает курица. Человек говорил «фарш», приложение
+  // слышало «мясо вообще» — и брало то, что выгоднее по белку
+  // на рубль. Отсюда соевый гуляш вместо котлет.
+  //
+  // Отметка на продукте должна означать сам продукт. Требуем, чтобы
+  // каждый явно любимый продукт реально присутствовал в рационе.
+  // Порог скромный: это «покажи мне это регулярно», а не «корми
+  // меня только этим».
+  const likedProducts = Object.entries(prefs.products)
+    .filter(([, liking]) => liking === 'often' || liking === 'always')
+    .map(([productId]) => productId)
+    .filter((id) => PRODUCT_BY_ID[id])
+    // Не больше трёх: требования складываются, и при пяти любимых
+    // продуктах по 25 г/день план становился невыполнимым
+    // (budget_too_low). Три — та граница, где просьба ещё слышна,
+    // а рацион ещё собирается.
+    .slice(0, 3);
+
+  for (const productId of likedProducts) {
+    const product = PRODUCT_BY_ID[productId];
+    // приправы отмечать «любимыми» бессмысленно: их едят граммами
+    if (!product || product.tags.includes('condiment')) continue;
+
+    const terms = candidates
+      .map((c, i) => {
+        const grams = c.stats.recipe.ingredients
+          .filter((ing) => ing.productId === productId)
+          .reduce((sum, ing) => sum + ing.grams, 0);
+        return grams > 0 ? `${grams.toFixed(3)} x${i}` : null;
+      })
+      .filter(Boolean)
+      .join(' + ');
+    if (!terms) continue;
+
+    // Сколько граммов любимого продукта хочется видеть за период.
+    // 15 г на человека в день — это порция раз в 4-5 дней в составе
+    // блюда. Мало для «надоел», достаточно для «он есть в меню».
+    // При 25 г три продукта уже не помещались в бюджет.
+    const wantGrams = 15 * personDays * minSlack;
+    lines.push(` likedp_${productId}: ${terms} >= ${wantGrams.toFixed(1)}`);
+
+    // РАЗНЫЕ БЛЮДА, А НЕ ОДНО ПОБОЛЬШЕ.
+    //
+    // Требования по граммам мало: солвер закрывал его одним
+    // «Чечевичным супом с фаршем» девять раз подряд. Формально фарш
+    // в рационе есть, по факту человек ест один и тот же суп —
+    // ровно то, на что жаловались в отзыве.
+    //
+    // Поэтому требуем РАЗНООБРАЗИЕ носителей: минимум три разных
+    // блюда с этим продуктом (если они вообще есть в шорт-листе).
+    // Считаем по индикаторам использования u_i, а не по порциям.
+    if (useVars && integer) {
+      const carriers = candidates
+        .map((c, i) => ({ c, i }))
+        .filter(({ c }) =>
+          c.stats.recipe.ingredients.some(
+            (ing) => ing.productId === productId && ing.grams >= 40,
+          ),
+        );
+      if (carriers.length >= 3) {
+        const need = Math.min(3, Math.max(1, Math.floor(carriers.length / 2)));
+        lines.push(
+          ` likedv_${productId}: ${carriers.map(({ i }) => `u${i}`).join(' + ')}` +
+            ` >= ${Math.max(1, Math.round(need * minSlack))}`,
+        );
+      }
+    }
+  }
+
   // ── кулинарные ограничения на уровне категорий ингредиентов ──
   for (const [category, rule] of Object.entries(CATEGORY_RULES)) {
     if (!rule) continue;
@@ -1412,6 +1487,37 @@ export async function planMenu(
     }
   }
 
+  // ЛЮБИМЫЕ ПРОДУКТЫ — ТОЖЕ РЕЗЕРВИРУЕМ МЕСТА.
+  //
+  // Отзыв: «отметил фарш любимым, он попал в ОДНО блюдо из 36,
+  // двенадцать блюд с фаршем не показали ни разу». Замер подтвердил:
+  // из 12 блюд с фаршем в шорт-лист доходило РОВНО ОДНО.
+  //
+  // Механика та же, что была с деликатесами: шорт-лист отбирается
+  // по LP-релаксации, а предпочтения живут в MILP. Блюда отсеивались
+  // раньше, чем модель успевала понять, что человек их просил.
+  // Награды и ограничения при этом были настроены верно — они просто
+  // применялись к пустому множеству.
+  const likedIds = Object.entries(prefs.products)
+    .filter(([, v]) => v === 'often' || v === 'always')
+    .map(([id]) => id);
+  if (likedIds.length > 0) {
+    for (const productId of likedIds.slice(0, 3)) {
+      let added = 0;
+      for (const { c, i } of scored) {
+        if (added >= 5) break;
+        if (keep.has(i)) continue;
+        const grams = c.stats.recipe.ingredients
+          .filter((ing) => ing.productId === productId)
+          .reduce((sum, ing) => sum + ing.grams, 0);
+        // 40 г — порог «продукт заметен в блюде», а не приправа
+        if (grams < 40) continue;
+        keep.add(i);
+        added++;
+      }
+    }
+  }
+
   const bounded = candidates
     .map((c, i) => ({ c, i }))
     .filter(({ i }) => keep.has(i))
@@ -1431,6 +1537,7 @@ export async function planMenu(
         ),
       ),
     }));
+
 
   const milpModel = buildDishModel(
     bounded,

@@ -92,10 +92,13 @@ const PASSES: Relaxation[] = [
   // умеренный: разрешаем плотнее набивать приёмы
   { repeatGap: MIN_REPEAT_GAP_DAYS, overfillFactor: 1.4, maxSameRole: 1, maxDishes: 4 },
   // мягкий: повтор через 2 дня — на коротком периоде иначе не хватает блюд
-  { repeatGap: 2, overfillFactor: 1.8, maxSameRole: 1, maxDishes: 5 },
+  { repeatGap: 2, overfillFactor: 1.6, maxSameRole: 1, maxDishes: 5 },
   // финальный: не оставляем ужин пустым. Повтор через день хуже,
   // чем день вообще без ужина — это вопрос практичности, а не эстетики.
-  { repeatGap: 1, overfillFactor: 2.2, maxSameRole: 1, maxDishes: 5 },
+  // overfillFactor 1.8, а не 2.2: приём, раздутый вдвое, — это уже
+  // не «немного больше», а перекос. Вместе с потолком дня в уборщике
+  // это убирает дни на 3000+ ккал при цели 2500.
+  { repeatGap: 1, overfillFactor: 1.8, maxSameRole: 1, maxDishes: 5 },
 ];
 
 function zero(): Nutrients {
@@ -262,7 +265,19 @@ export function buildSchedule(
           const perPortionKcal = Math.max(1, pick.stats.nutrients.kcal);
           const roomKcal =
             meal.targetKcal * relax.overfillFactor - meal.nutrients.kcal;
-          const byRoom = Math.max(1, Math.floor(roomKcal / perPortionKcal));
+          // Вместимость ДНЯ, а не только приёма.
+          //
+          // Отзыв: «дни скачут от 1583 до 3090 ккал при цели 2506».
+          // Причина: подача ограничивалась вместимостью приёма, а день
+          // целиком никто не проверял. Четыре щедрых приёма подряд —
+          // и день уходит на треть выше нормы, а еды на завтра не остаётся.
+          const dayRoom =
+            day.targetKcal * relax.overfillFactor - day.nutrients.kcal;
+          const byDay = Math.max(1, Math.floor(dayRoom / perPortionKcal));
+          const byRoom = Math.max(
+            1,
+            Math.min(Math.floor(roomKcal / perPortionKcal), byDay),
+          );
 
           // Блюдо-привычка съедается по одной порции на человека в день.
           // Без этого 30 порций кофе укладывались в 11 дней пачками.
@@ -365,11 +380,18 @@ function sweepRemainder(
   // разрешаем повтор через день. Это компромисс между «красивым меню»
   // и «продукты не должны пропасть».
   const stages = [
-    { minGap: 2, maxSameGroup: 1, maxDishes: 5, fillTo: 1.5, requireCore: true },
+    { minGap: 2, maxSameGroup: 1, maxDishes: 5, fillTo: 1.35, requireCore: true, dayCap: 1.08 },
     // Финальная стадия: СанПиН допускает отклонение по отдельному приёму,
     // если среднее за период в норме. Пустой приём хуже, чем приём
     // из одного гарнира, поэтому структуру здесь не требуем.
-    { minGap: 1, maxSameGroup: 1, maxDishes: 6, fillTo: 2.4, requireCore: false },
+    // fillTo 1.6, а не 2.4, и потолок дня 1.12.
+    //
+    // Отзыв: «то 1583 ккал, то 3090 при цели 2506». Финальная стадия
+    // уборщика разрешала приёму раздуться в 2.4 раза, а дню — уйти
+    // на 15% выше нормы. Совпадение двух допусков и давало дни
+    // на 3000+ ккал. Уборщик существует, чтобы не пропала еда,
+    // а не чтобы перекормить в один день.
+    { minGap: 1, maxSameGroup: 1, maxDishes: 6, fillTo: 1.6, requireCore: false, dayCap: 1.12 },
   ];
 
   for (const stage of stages) {
@@ -388,12 +410,28 @@ function sweepRemainder(
           // добираем приём, пока он не превысил лимит стадии И день
           // не ушёл далеко за свою норму
           const dayRatio = day.nutrients.kcal / Math.max(1, day.targetKcal);
-          if (ratio < stage.fillTo && dayRatio < 1.15) {
+          if (ratio < stage.fillTo && dayRatio < stage.dayCap) {
             weakMeals.push({ day, meal, ratio });
           }
         }
       }
-      weakMeals.sort((a, b) => a.ratio - b.ratio);
+      // Сначала САМЫЕ ГОЛОДНЫЕ ДНИ, и только потом слабые приёмы внутри.
+      //
+      // Отзыв: «дни скачут: то 1583 ккал, то 3090 при цели 2506.
+      // В сумме за месяц сходится, но я живу днём, а не месяцем».
+      // Причина была здесь: уборщик сортировал приёмы по их
+      // собственной наполненности, не глядя на день целиком. Приём
+      // на 40% в сытом дне добирался раньше, чем такой же приём
+      // в голодном, и разрыв между днями только рос.
+      weakMeals.sort((a, b) => {
+        const dayA = a.day.nutrients.kcal / Math.max(1, a.day.targetKcal);
+        const dayB = b.day.nutrients.kcal / Math.max(1, b.day.targetKcal);
+        // ступени по 10%, иначе раскладка мечется между днями
+        const stepA = Math.floor(dayA * 10);
+        const stepB = Math.floor(dayB * 10);
+        if (stepA !== stepB) return stepA - stepB;
+        return a.ratio - b.ratio;
+      });
 
       {
         for (const { day, meal } of weakMeals) {
