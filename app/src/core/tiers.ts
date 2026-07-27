@@ -158,7 +158,12 @@ export const MODE_PROFILES: Record<BudgetMode, ModeProfile> = {
     mode: 'lean',
     maxTreatShare: 0.05,
     maxIndulgenceShare: 0.04,
-    minEssentialShare: 0.5,
+    // 0.32, а не 0.5. Замер показал: «необходимое» — это белок, овощи
+    // и молочное, а основную энергию всегда дают крупы, хлеб и масло.
+    // Планка в половину энергии физически недостижима: минимальный
+    // выполнимый бюджет месяца подскакивал с 4400 до 10 620 ₽,
+    // то есть режим для бедных переставал работать именно для бедных.
+    minEssentialShare: 0.32,
     qualityWeight: 90,
     varietyWeight: 1.2,
     thriftWeight: 0.6,
@@ -174,7 +179,7 @@ export const MODE_PROFILES: Record<BudgetMode, ModeProfile> = {
     mode: 'balanced',
     maxTreatShare: 0.15,
     maxIndulgenceShare: 0.06,
-    minEssentialShare: 0.45,
+    minEssentialShare: 0.3,
     qualityWeight: 120,
     varietyWeight: 2.5,
     thriftWeight: 0.12,
@@ -190,7 +195,7 @@ export const MODE_PROFILES: Record<BudgetMode, ModeProfile> = {
     mode: 'premium',
     maxTreatShare: 0.3,
     maxIndulgenceShare: 0.07,
-    minEssentialShare: 0.4,
+    minEssentialShare: 0.28,
     qualityWeight: 170,
     varietyWeight: 4,
     thriftWeight: 0,
@@ -212,9 +217,12 @@ export const MODE_PROFILES: Record<BudgetMode, ModeProfile> = {
 export function detectMode(budget: number, survivalCost: number): BudgetMode {
   if (survivalCost <= 0) return 'balanced';
   const ratio = budget / survivalCost;
-  // < 1.8 — денег в обрез, каждый рубль на счету
-  if (ratio < 1.8) return 'lean';
-  // > 3.5 — норма закрывается легко, деньги можно тратить на качество
-  if (ratio > 3.5) return 'premium';
+  // < 2.2 — денег в обрез, каждый рубль на счету.
+  // Порог поднят с 1.8: при 1.8 бюджет 11 000 ₽ на месяц уже считался
+  // «сбалансированным», хотя это 366 ₽ в день — на такие деньги
+  // приходится именно экономить, а не выбирать.
+  if (ratio < 2.2) return 'lean';
+  // > 4.5 — норма закрывается легко, деньги идут в качество
+  if (ratio > 4.5) return 'premium';
   return 'balanced';
 }

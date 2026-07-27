@@ -21,6 +21,7 @@ export const RECIPES: Recipe[] = [
     minutes: 15,
     batchPortions: 2,
     keepsDays: 1,
+    requires: ['stove'],
     tags: ['vegetarian', 'quick'],
     ingredients: [
       { productId: 'oats', grams: 60, method: 'boiled' },
@@ -37,6 +38,7 @@ export const RECIPES: Recipe[] = [
     minutes: 25,
     batchPortions: 3,
     keepsDays: 3,
+    requires: ['stove'],
     tags: ['vegetarian'],
     ingredients: [
       { productId: 'buckwheat', grams: 70, method: 'boiled' },
@@ -51,6 +53,7 @@ export const RECIPES: Recipe[] = [
     minutes: 30,
     batchPortions: 3,
     keepsDays: 2,
+    requires: ['stove'],
     tags: ['vegetarian'],
     ingredients: [
       { productId: 'millet', grams: 60, method: 'boiled' },
@@ -67,6 +70,7 @@ export const RECIPES: Recipe[] = [
     minutes: 12,
     batchPortions: 2,
     keepsDays: 1,
+    requires: ['stove'],
     tags: ['vegetarian', 'quick'],
     ingredients: [
       { productId: 'semolina', grams: 45, method: 'boiled' },
@@ -83,6 +87,7 @@ export const RECIPES: Recipe[] = [
     minutes: 30,
     batchPortions: 3,
     keepsDays: 2,
+    requires: ['stove'],
     tags: ['vegetarian', 'gluten-free'],
     ingredients: [
       { productId: 'corn_groats', grams: 60, method: 'boiled' },
@@ -98,6 +103,7 @@ export const RECIPES: Recipe[] = [
     minutes: 8,
     batchPortions: 1,
     keepsDays: 0,
+    requires: ['stove'],
     tags: ['vegetarian', 'quick', 'gluten-free'],
     ingredients: [
       { productId: 'eggs', grams: 110, method: 'fried' },
@@ -113,6 +119,7 @@ export const RECIPES: Recipe[] = [
     minutes: 12,
     batchPortions: 2,
     keepsDays: 1,
+    requires: ['stove'],
     tags: ['vegetarian', 'quick', 'gluten-free'],
     ingredients: [
       { productId: 'eggs', grams: 110, method: 'fried' },
@@ -160,6 +167,7 @@ export const RECIPES: Recipe[] = [
     minutes: 70,
     batchPortions: 6,
     keepsDays: 3,
+    requires: ['stove'],
     tags: [],
     ingredients: [
       { productId: 'beet', grams: 90, method: 'boiled' },
@@ -181,6 +189,7 @@ export const RECIPES: Recipe[] = [
     minutes: 60,
     batchPortions: 6,
     keepsDays: 3,
+    requires: ['stove'],
     tags: [],
     ingredients: [
       { productId: 'cabbage', grams: 120, method: 'boiled' },
@@ -200,6 +209,7 @@ export const RECIPES: Recipe[] = [
     minutes: 75,
     batchPortions: 6,
     keepsDays: 3,
+    requires: ['stove'],
     tags: [],
     ingredients: [
       { productId: 'peas_dry', grams: 60, method: 'boiled' },
@@ -218,6 +228,7 @@ export const RECIPES: Recipe[] = [
     minutes: 45,
     batchPortions: 5,
     keepsDays: 2,
+    requires: ['stove'],
     tags: [],
     ingredients: [
       { productId: 'chicken_whole', grams: 80, method: 'boiled' },
@@ -236,6 +247,7 @@ export const RECIPES: Recipe[] = [
     minutes: 45,
     batchPortions: 5,
     keepsDays: 2,
+    requires: ['stove'],
     tags: ['gluten-free'],
     ingredients: [
       { productId: 'hake', grams: 100, method: 'boiled' },
@@ -253,6 +265,7 @@ export const RECIPES: Recipe[] = [
     minutes: 50,
     batchPortions: 5,
     keepsDays: 3,
+    requires: ['stove'],
     tags: ['vegan', 'gluten-free'],
     ingredients: [
       { productId: 'lentils', grams: 70, method: 'boiled' },
@@ -273,6 +286,7 @@ export const RECIPES: Recipe[] = [
     minutes: 40,
     batchPortions: 4,
     keepsDays: 2,
+    requires: ['stove'],
     tags: ['gluten-free'],
     ingredients: [
       { productId: 'chicken_leg', grams: 140, method: 'baked' },
@@ -290,6 +304,7 @@ export const RECIPES: Recipe[] = [
     minutes: 35,
     batchPortions: 4,
     keepsDays: 2,
+    requires: ['stove'],
     tags: ['gluten-free'],
     ingredients: [
       { productId: 'buckwheat', grams: 70, method: 'boiled' },
@@ -306,6 +321,7 @@ export const RECIPES: Recipe[] = [
     minutes: 30,
     batchPortions: 4,
     keepsDays: 2,
+    requires: ['stove'],
     tags: [],
     ingredients: [
       { productId: 'pasta', grams: 90, method: 'boiled' },
@@ -323,6 +339,7 @@ export const RECIPES: Recipe[] = [
     minutes: 45,
     batchPortions: 4,
     keepsDays: 2,
+    requires: ['stove'],
     tags: [],
     ingredients: [
       { productId: 'potato', grams: 250, method: 'boiled' },
@@ -342,6 +359,7 @@ export const RECIPES: Recipe[] = [
     minutes: 40,
     batchPortions: 4,
     keepsDays: 3,
+    requires: ['stove'],
     tags: [],
     ingredients: [
       { productId: 'cabbage', grams: 250, method: 'stewed' },
@@ -395,6 +413,7 @@ export const RECIPES: Recipe[] = [
     minutes: 60,
     batchPortions: 4,
     keepsDays: 3,
+    requires: ['stove'],
     tags: [],
     ingredients: [
       { productId: 'pork', grams: 110, method: 'stewed' },
@@ -412,6 +431,7 @@ export const RECIPES: Recipe[] = [
     minutes: 30,
     batchPortions: 3,
     keepsDays: 2,
+    requires: ['stove'],
     tags: ['gluten-free'],
     ingredients: [
       { productId: 'liver_chicken', grams: 130, method: 'fried' },
@@ -429,6 +449,7 @@ export const RECIPES: Recipe[] = [
     minutes: 50,
     batchPortions: 4,
     keepsDays: 3,
+    requires: ['stove'],
     tags: ['vegan', 'gluten-free'],
     ingredients: [
       { productId: 'chickpeas', grams: 80, method: 'boiled' },
@@ -447,6 +468,7 @@ export const RECIPES: Recipe[] = [
     minutes: 55,
     batchPortions: 4,
     keepsDays: 3,
+    requires: ['stove'],
     tags: ['vegan', 'gluten-free'],
     ingredients: [
       { productId: 'beans_dry', grams: 80, method: 'boiled' },
@@ -464,6 +486,7 @@ export const RECIPES: Recipe[] = [
     minutes: 35,
     batchPortions: 3,
     keepsDays: 2,
+    requires: ['stove'],
     tags: [],
     ingredients: [
       { productId: 'turkey', grams: 120, method: 'fried' },
@@ -496,6 +519,7 @@ export const RECIPES: Recipe[] = [
     minutes: 25,
     batchPortions: 3,
     keepsDays: 1,
+    requires: ['stove'],
     tags: ['vegan', 'gluten-free'],
     ingredients: [
       { productId: 'zucchini', grams: 250, method: 'fried' },
@@ -529,6 +553,7 @@ export const RECIPES: Recipe[] = [
     minutes: 25,
     batchPortions: 4,
     keepsDays: 2,
+    requires: ['stove'],
     tags: ['vegan', 'gluten-free'],
     ingredients: [
       { productId: 'potato', grams: 250, method: 'boiled' },
@@ -544,6 +569,7 @@ export const RECIPES: Recipe[] = [
     minutes: 25,
     batchPortions: 4,
     keepsDays: 2,
+    requires: ['stove'],
     tags: ['vegetarian', 'gluten-free'],
     ingredients: [
       { productId: 'rice', grams: 75, method: 'boiled' },
@@ -558,6 +584,7 @@ export const RECIPES: Recipe[] = [
     minutes: 30,
     batchPortions: 4,
     keepsDays: 2,
+    requires: ['stove'],
     tags: ['vegetarian'],
     ingredients: [
       { productId: 'barley_groats', grams: 70, method: 'boiled' },
@@ -573,6 +600,7 @@ export const RECIPES: Recipe[] = [
     minutes: 15,
     batchPortions: 3,
     keepsDays: 1,
+    requires: ['stove'],
     tags: ['vegetarian', 'quick'],
     ingredients: [
       { productId: 'pasta', grams: 90, method: 'boiled' },
@@ -604,6 +632,7 @@ export const RECIPES: Recipe[] = [
     minutes: 15,
     batchPortions: 3,
     keepsDays: 2,
+    requires: ['stove'],
     tags: ['vegan', 'gluten-free'],
     ingredients: [
       { productId: 'beet', grams: 150, method: 'boiled' },
@@ -650,6 +679,7 @@ export const RECIPES: Recipe[] = [
     minutes: 10,
     batchPortions: 2,
     keepsDays: 1,
+    requires: ['stove'],
     tags: ['vegetarian', 'gluten-free', 'quick'],
     ingredients: [
       { productId: 'green_peas_canned', grams: 100 },
@@ -666,6 +696,7 @@ export const RECIPES: Recipe[] = [
     minutes: 30,
     batchPortions: 2,
     keepsDays: 1,
+    requires: ['stove'],
     tags: ['gluten-free'],
     ingredients: [
       { productId: 'herring', grams: 90 },
@@ -816,6 +847,7 @@ export const RECIPES: Recipe[] = [
     minutes: 20,
     batchPortions: 2,
     keepsDays: 1,
+    requires: ['stove'],
     tags: ['vegetarian'],
     ingredients: [
       { productId: 'oats', grams: 55, method: 'boiled' },
@@ -832,6 +864,7 @@ export const RECIPES: Recipe[] = [
     minutes: 25,
     batchPortions: 3,
     keepsDays: 2,
+    requires: ['stove'],
     tags: ['vegetarian'],
     ingredients: [
       { productId: 'cottage_cheese', grams: 180 },
@@ -850,6 +883,7 @@ export const RECIPES: Recipe[] = [
     minutes: 10,
     batchPortions: 1,
     keepsDays: 0,
+    requires: ['stove'],
     tags: ['vegetarian', 'quick'],
     ingredients: [
       { productId: 'bread_wheat', grams: 60 },
@@ -868,6 +902,7 @@ export const RECIPES: Recipe[] = [
     minutes: 25,
     batchPortions: 3,
     keepsDays: 1,
+    requires: ['stove'],
     tags: ['vegetarian'],
     ingredients: [
       { productId: 'flour', grams: 70, method: 'fried' },
@@ -901,6 +936,7 @@ export const RECIPES: Recipe[] = [
     minutes: 15,
     batchPortions: 2,
     keepsDays: 1,
+    requires: ['stove'],
     tags: ['vegetarian'],
     ingredients: [
       { productId: 'oats', grams: 65, method: 'boiled' },
@@ -1643,6 +1679,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'mince_potato_pan', name: 'Картошка с фаршем на сковороде', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 25, batchPortions: 4, keepsDays: 2,
+    requires: ['stove'],
     tags: ['quick', 'gluten-free'],
     ingredients: [
       { productId: 'potato', grams: 220, method: 'fried' },
@@ -1654,6 +1691,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'navy_pasta_quick', name: 'Макароны с фаршем и томатом', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 20, batchPortions: 4, keepsDays: 2,
+    requires: ['stove'],
     tags: ['quick'],
     ingredients: [
       { productId: 'pasta', grams: 100, method: 'boiled' },
@@ -1666,6 +1704,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'rice_egg_pan', name: 'Рис с яйцом и овощами', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 18, batchPortions: 3, keepsDays: 2,
+    requires: ['stove'],
     tags: ['quick', 'vegetarian', 'gluten-free'],
     ingredients: [
       { productId: 'rice', grams: 90, method: 'boiled' },
@@ -1677,6 +1716,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'chicken_potato_pan', name: 'Курица с картошкой на сковороде', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 25, batchPortions: 4, keepsDays: 2,
+    requires: ['stove'],
     tags: ['quick', 'gluten-free'],
     ingredients: [
       { productId: 'chicken_fillet', grams: 130, method: 'fried' },
@@ -1688,6 +1728,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'buckwheat_mince', name: 'Гречка с фаршем', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 25, batchPortions: 4, keepsDays: 3,
+    requires: ['stove'],
     tags: ['quick', 'gluten-free'],
     ingredients: [
       { productId: 'buckwheat', grams: 85, method: 'boiled' },
@@ -1700,6 +1741,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'cabbage_mince_stew', name: 'Капуста тушёная с фаршем', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 25, batchPortions: 4, keepsDays: 3,
+    requires: ['stove'],
     tags: ['quick', 'gluten-free'],
     ingredients: [
       { productId: 'cabbage', grams: 220, method: 'stewed' },
@@ -1713,6 +1755,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'pasta_cheese_egg', name: 'Макароны с сыром и яйцом', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 15, batchPortions: 2, keepsDays: 1,
+    requires: ['stove'],
     tags: ['quick', 'vegetarian'],
     ingredients: [
       { productId: 'pasta', grams: 110, method: 'boiled' },
@@ -1724,6 +1767,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'pollock_rice_quick', name: 'Минтай с рисом за 25 минут', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 25, batchPortions: 3, keepsDays: 2,
+    requires: ['stove'],
     tags: ['quick', 'gluten-free'],
     ingredients: [
       { productId: 'pollock_fillet', grams: 150, method: 'fried' },
@@ -1735,6 +1779,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'lentil_mince_soup', name: 'Чечевичный суп с фаршем', role: 'soup',
     slots: ['lunch'], minutes: 25, batchPortions: 4, keepsDays: 3,
+    requires: ['stove'],
     tags: ['quick', 'gluten-free'],
     ingredients: [
       { productId: 'lentils', grams: 60, method: 'boiled' },
@@ -1761,6 +1806,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'sausage_buckwheat', name: 'Гречка с сосисками и овощами', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 20, batchPortions: 3, keepsDays: 2,
+    requires: ['stove'],
     tags: ['quick'],
     ingredients: [
       { productId: 'buckwheat', grams: 85, method: 'boiled' },
@@ -1772,6 +1818,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'curd_pasta_bake', name: 'Макароны с творогом', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 18, batchPortions: 3, keepsDays: 2,
+    requires: ['stove'],
     tags: ['quick', 'vegetarian'],
     ingredients: [
       { productId: 'pasta', grams: 100, method: 'boiled' },
@@ -1791,6 +1838,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'chicken_thigh_buckwheat', name: 'Бёдра куриные с гречкой', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 40, batchPortions: 4, keepsDays: 3,
+    requires: ['stove'],
     tags: ['gluten-free'],
     ingredients: [
       { productId: 'chicken_thigh', grams: 140, method: 'stewed' },
@@ -1804,6 +1852,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'chicken_back_soup', name: 'Куриный бульон со спинками', role: 'soup',
     slots: ['lunch'], minutes: 50, batchPortions: 6, keepsDays: 3,
+    requires: ['stove'],
     tags: ['gluten-free'],
     ingredients: [
       { productId: 'chicken_back', grams: 120, method: 'boiled' },
@@ -1817,6 +1866,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'hearts_stewed', name: 'Куриные сердечки в сметане', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 40, batchPortions: 4, keepsDays: 2,
+    requires: ['stove'],
     tags: ['gluten-free'],
     ingredients: [
       { productId: 'heart_chicken', grams: 130, method: 'stewed' },
@@ -1829,6 +1879,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'sprats_potato', name: 'Картофель с килькой в томате', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 30, batchPortions: 3, keepsDays: 1,
+    requires: ['stove'],
     tags: ['quick', 'gluten-free'],
     ingredients: [
       { productId: 'potato', grams: 250, method: 'boiled' },
@@ -1840,6 +1891,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'pea_soup_smoked', name: 'Гороховый суп с зажаркой', role: 'soup',
     slots: ['lunch'], minutes: 55, batchPortions: 6, keepsDays: 3,
+    requires: ['stove'],
     tags: ['vegetarian', 'gluten-free'],
     ingredients: [
       { productId: 'peas_dry', grams: 60, method: 'boiled' },
@@ -1853,6 +1905,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'lentil_veg_stew', name: 'Чечевица тушёная с овощами', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 35, batchPortions: 4, keepsDays: 3,
+    requires: ['stove'],
     tags: ['vegan', 'gluten-free'],
     ingredients: [
       { productId: 'lentils', grams: 85, method: 'boiled' },
@@ -1866,6 +1919,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'barley_mushroom', name: 'Перловка с грибами', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 50, batchPortions: 4, keepsDays: 3,
+    requires: ['stove'],
     tags: ['vegan', 'gluten-free'],
     ingredients: [
       { productId: 'pearl_barley', grams: 85, method: 'boiled' },
@@ -1878,6 +1932,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'cabbage_soup_cheap', name: 'Щи из квашеной капусты', role: 'soup',
     slots: ['lunch'], minutes: 45, batchPortions: 6, keepsDays: 3,
+    requires: ['stove'],
     tags: ['vegan', 'gluten-free'],
     ingredients: [
       { productId: 'cabbage_sauer', grams: 120, method: 'stewed' },
@@ -1891,6 +1946,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'beans_tomato_stew', name: 'Фасоль в томате', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 25, batchPortions: 3, keepsDays: 3,
+    requires: ['stove'],
     tags: ['vegan', 'gluten-free', 'quick'],
     ingredients: [
       { productId: 'beans_canned', grams: 200 },
@@ -1905,6 +1961,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'egg_potato_pan', name: 'Драники из картофеля', role: 'main',
     slots: ['breakfast', 'dinner'], minutes: 30, batchPortions: 3, keepsDays: 1,
+    requires: ['stove'],
     tags: ['vegetarian'],
     ingredients: [
       { productId: 'potato', grams: 250, method: 'fried' },
@@ -1918,6 +1975,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'sardine_pasta', name: 'Макароны с сардиной и томатом', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 20, batchPortions: 3, keepsDays: 1,
+    requires: ['stove'],
     tags: ['quick'],
     ingredients: [
       { productId: 'pasta', grams: 100, method: 'boiled' },
@@ -1931,6 +1989,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'millet_pumpkin', name: 'Пшённая каша с тыквой', role: 'porridge',
     slots: ['breakfast'], minutes: 35, batchPortions: 3, keepsDays: 2,
+    requires: ['stove'],
     tags: ['vegetarian', 'gluten-free'],
     ingredients: [
       { productId: 'millet', grams: 65, method: 'boiled' },
@@ -1943,6 +2002,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'oat_whole_porridge', name: 'Овсяная каша из цельной крупы', role: 'porridge',
     slots: ['breakfast'], minutes: 30, batchPortions: 3, keepsDays: 2,
+    requires: ['stove'],
     tags: ['vegetarian'],
     ingredients: [
       { productId: 'oatmeal_whole', grams: 70, method: 'boiled' },
@@ -1954,6 +2014,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'turnip_stew', name: 'Репа тушёная с морковью', role: 'side',
     slots: ['lunch', 'dinner'], minutes: 30, batchPortions: 4, keepsDays: 3,
+    requires: ['stove'],
     tags: ['vegan', 'gluten-free'],
     ingredients: [
       { productId: 'turnip', grams: 180, method: 'stewed' },
@@ -1965,6 +2026,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'green_beans_egg', name: 'Стручковая фасоль с яйцом', role: 'main',
     slots: ['breakfast', 'dinner'], minutes: 15, batchPortions: 2, keepsDays: 1,
+    requires: ['stove'],
     tags: ['vegetarian', 'gluten-free', 'quick'],
     ingredients: [
       { productId: 'frozen_green_beans', grams: 160, method: 'fried' },
@@ -1983,6 +2045,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'chicken_curry_rice', name: 'Курица карри с рисом', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 30, batchPortions: 4, keepsDays: 2,
+    requires: ['stove'],
     tags: ['gluten-free'],
     ingredients: [
       { productId: 'chicken_fillet', grams: 130, method: 'stewed' },
@@ -1996,6 +2059,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'turkey_stroganoff', name: 'Индейка по-строгановски', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 30, batchPortions: 4, keepsDays: 2,
+    requires: ['stove'],
     tags: ['gluten-free'],
     ingredients: [
       { productId: 'turkey', grams: 130, method: 'fried' },
@@ -2009,6 +2073,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'pork_shoulder_stew', name: 'Свинина тушёная с картофелем', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 55, batchPortions: 5, keepsDays: 3,
+    requires: ['stove'],
     tags: ['gluten-free'],
     ingredients: [
       { productId: 'pork_shoulder', grams: 120, method: 'stewed' },
@@ -2023,6 +2088,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'cod_veg_pan', name: 'Треска с овощами на сковороде', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 25, batchPortions: 3, keepsDays: 1,
+    requires: ['stove'],
     tags: ['quick', 'gluten-free'],
     ingredients: [
       { productId: 'cod', grams: 160, method: 'fried' },
@@ -2048,6 +2114,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'chicken_soup_noodle', name: 'Куриная лапша', role: 'soup',
     slots: ['lunch'], minutes: 40, batchPortions: 5, keepsDays: 3,
+    requires: ['stove'],
     tags: [],
     ingredients: [
       { productId: 'chicken_thigh', grams: 90, method: 'boiled' },
@@ -2089,6 +2156,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'mince_cabbage_rolls', name: 'Ленивые голубцы', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 45, batchPortions: 5, keepsDays: 3,
+    requires: ['stove'],
     tags: ['gluten-free'],
     ingredients: [
       { productId: 'mince', grams: 110, method: 'stewed' },
@@ -2104,6 +2172,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'chicken_cutlets', name: 'Куриные котлеты с пюре', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 40, batchPortions: 4, keepsDays: 2,
+    requires: ['stove'],
     tags: [],
     ingredients: [
       { productId: 'mince_chicken', grams: 130, method: 'fried' },
@@ -2118,6 +2187,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'tofu_stirfry', name: 'Тофу с овощами в соевом соусе', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 20, batchPortions: 2, keepsDays: 1,
+    requires: ['stove'],
     tags: ['vegan', 'quick'],
     ingredients: [
       { productId: 'tofu', grams: 150, method: 'fried' },
@@ -2131,6 +2201,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'liver_rice', name: 'Печень с рисом и луком', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 30, batchPortions: 3, keepsDays: 2,
+    requires: ['stove'],
     tags: ['gluten-free'],
     ingredients: [
       { productId: 'liver_chicken', grams: 130, method: 'fried' },
@@ -2143,6 +2214,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'omelet_broccoli_cheese', name: 'Омлет с брокколи и сыром', role: 'main',
     slots: ['breakfast', 'dinner'], minutes: 15, batchPortions: 2, keepsDays: 1,
+    requires: ['stove'],
     tags: ['vegetarian', 'gluten-free', 'quick'],
     ingredients: [
       { productId: 'eggs', grams: 110, method: 'fried' },
@@ -2176,6 +2248,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'rice_brown_veg', name: 'Бурый рис с овощами', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 40, batchPortions: 4, keepsDays: 3,
+    requires: ['stove'],
     tags: ['vegan', 'gluten-free'],
     ingredients: [
       { productId: 'rice_brown', grams: 85, method: 'boiled' },
@@ -2188,6 +2261,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'spinach_pasta_cream', name: 'Паста со шпинатом в сливках', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 20, batchPortions: 3, keepsDays: 1,
+    requires: ['stove'],
     tags: ['vegetarian', 'quick'],
     ingredients: [
       { productId: 'pasta_durum', grams: 100, method: 'boiled' },
@@ -2201,6 +2275,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'squid_salad_warm', name: 'Тёплый салат с кальмаром', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 20, batchPortions: 2, keepsDays: 1,
+    requires: ['stove'],
     tags: ['quick', 'gluten-free'],
     ingredients: [
       { productId: 'squid', grams: 140, method: 'fried' },
@@ -2259,6 +2334,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'beef_steak_potato', name: 'Стейк из говядины с картофелем', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 30, batchPortions: 2, keepsDays: 1,
+    requires: ['stove'],
     tags: ['gluten-free', 'delicacy'],
     ingredients: [
       { productId: 'beef_tenderloin', grams: 160, method: 'fried' },
@@ -2271,6 +2347,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'shrimp_pasta', name: 'Паста с креветками', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 25, batchPortions: 2, keepsDays: 1,
+    requires: ['stove'],
     tags: ['delicacy', 'quick'],
     ingredients: [
       { productId: 'shrimp', grams: 130, method: 'fried' },
@@ -2284,6 +2361,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'duck_breast_grain', name: 'Утиная грудка с киноа', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 35, batchPortions: 2, keepsDays: 1,
+    requires: ['stove'],
     tags: ['gluten-free', 'delicacy'],
     ingredients: [
       { productId: 'duck_breast', grams: 140, method: 'fried' },
@@ -2309,6 +2387,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'avocado_toast_egg', name: 'Тост с авокадо и яйцом', role: 'bakery',
     slots: ['breakfast', 'snack'], minutes: 12, batchPortions: 1, keepsDays: 0,
+    requires: ['stove'],
     tags: ['vegetarian', 'quick', 'delicacy'],
     ingredients: [
       { productId: 'bread_rye', grams: 60 },
@@ -2321,6 +2400,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'quinoa_bowl_veg', name: 'Боул с киноа и овощами', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 30, batchPortions: 3, keepsDays: 2,
+    requires: ['stove'],
     tags: ['vegan', 'gluten-free', 'delicacy'],
     ingredients: [
       { productId: 'quinoa', grams: 75, method: 'boiled' },
@@ -2356,6 +2436,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'cod_lemon_butter', name: 'Треска в лимонном масле', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 25, batchPortions: 2, keepsDays: 1,
+    requires: ['stove'],
     tags: ['gluten-free', 'quick'],
     ingredients: [
       { productId: 'cod', grams: 170, method: 'fried' },
@@ -2373,6 +2454,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'scrambled_tomato', name: 'Яичница с помидорами', role: 'main',
     slots: ['breakfast', 'dinner'], minutes: 12, batchPortions: 1, keepsDays: 0,
+    requires: ['stove'],
     tags: ['vegetarian', 'gluten-free', 'quick'],
     ingredients: [
       { productId: 'eggs', grams: 110, method: 'fried' },
@@ -2384,6 +2466,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'oatmeal_apple_cinnamon', name: 'Овсянка с яблоком', role: 'porridge',
     slots: ['breakfast'], minutes: 15, batchPortions: 2, keepsDays: 1,
+    requires: ['stove'],
     tags: ['vegetarian', 'quick'],
     ingredients: [
       { productId: 'oats', grams: 60, method: 'boiled' },
@@ -2396,6 +2479,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'cottage_pancakes_berry', name: 'Сырники с ягодами', role: 'bakery',
     slots: ['breakfast'], minutes: 25, batchPortions: 3, keepsDays: 1,
+    requires: ['stove'],
     tags: ['vegetarian'],
     ingredients: [
       { productId: 'cottage_cheese', grams: 150, method: 'fried' },
@@ -2409,6 +2493,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'semolina_berry', name: 'Манная каша с ягодами', role: 'porridge',
     slots: ['breakfast'], minutes: 12, batchPortions: 2, keepsDays: 1,
+    requires: ['stove'],
     tags: ['vegetarian', 'quick'],
     ingredients: [
       { productId: 'semolina', grams: 45, method: 'boiled' },
@@ -2433,6 +2518,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'rice_milk_porridge_dates', name: 'Рисовая каша с финиками', role: 'porridge',
     slots: ['breakfast'], minutes: 30, batchPortions: 3, keepsDays: 2,
+    requires: ['stove'],
     tags: ['vegetarian', 'gluten-free'],
     ingredients: [
       { productId: 'rice', grams: 65, method: 'boiled' },
@@ -2467,6 +2553,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'egg_sandwich_avocado', name: 'Яйцо пашот на тосте', role: 'main',
     slots: ['breakfast'], minutes: 12, batchPortions: 1, keepsDays: 0,
+    requires: ['stove'],
     tags: ['vegetarian', 'quick'],
     ingredients: [
       { productId: 'eggs', grams: 110, method: 'boiled' },
@@ -2557,6 +2644,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'tuna_corn_salad', name: 'Салат с сайрой и кукурузой', role: 'main',
     slots: ['lunch', 'dinner'], minutes: 8, batchPortions: 2, keepsDays: 1,
+    requires: ['stove'],
     tags: ['no-cook', 'quick', 'gluten-free'],
     ingredients: [
       { productId: 'canned_saury', grams: 90 },
@@ -2645,6 +2733,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'solyanka_light', name: 'Солянка домашняя', role: 'soup',
     slots: ['lunch'], minutes: 45, batchPortions: 5, keepsDays: 3,
+    requires: ['stove'],
     tags: [],
     ingredients: [
       { productId: 'boiled_sausage', grams: 60, method: 'fried' },
@@ -2660,6 +2749,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'fish_soup_cod', name: 'Уха из трески', role: 'soup',
     slots: ['lunch'], minutes: 40, batchPortions: 5, keepsDays: 2,
+    requires: ['stove'],
     tags: ['gluten-free'],
     ingredients: [
       { productId: 'cod', grams: 110, method: 'boiled' },
@@ -2688,6 +2778,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'spinach_rice_side', name: 'Рис со шпинатом', role: 'side',
     slots: ['lunch', 'dinner'], minutes: 25, batchPortions: 4, keepsDays: 2,
+    requires: ['stove'],
     tags: ['vegetarian', 'gluten-free'],
     ingredients: [
       { productId: 'rice', grams: 85, method: 'boiled' },
@@ -2725,6 +2816,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'cabbage_stew_side', name: 'Тушёная капуста', role: 'side',
     slots: ['lunch', 'dinner'], minutes: 30, batchPortions: 4, keepsDays: 3,
+    requires: ['stove'],
     tags: ['vegan', 'gluten-free'],
     ingredients: [
       { productId: 'cabbage', grams: 220, method: 'stewed' },
@@ -2737,6 +2829,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'beet_salad_walnut', name: 'Свёкла с грецким орехом', role: 'salad',
     slots: ['lunch', 'dinner'], minutes: 12, batchPortions: 2, keepsDays: 2,
+    requires: ['stove'],
     tags: ['vegan', 'gluten-free'],
     ingredients: [
       { productId: 'beet', grams: 150, method: 'boiled' },
