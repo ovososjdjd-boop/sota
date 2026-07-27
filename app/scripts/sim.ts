@@ -129,22 +129,6 @@ export function report(menu: MenuResult, budget: number, days: number, eaters: n
       `(${((unplaced / totalPortions) * 100).toFixed(1)}%)`,
   );
 
-  // ── закупка: крупные позиции ──
-  const lines = Object.entries(menu.products)
-    .map(([pid, g]) => {
-      const p = PRODUCT_BY_ID[pid];
-      if (!p) return null;
-      const gross = grossFromNet(p, g);
-      const packs = packsNeeded(p, gross);
-      return {
-        name: p.name,
-        grams: packs.totalGrams,
-        shelf: p.shelfLifeDays,
-        perishable: p.perishable,
-        cost: (packs.totalGrams / 1000) * p.pricePerKg,
-      };
-    })
-    .filter(Boolean) as { name: string; grams: number; shelf: number; perishable: boolean; cost: number }[];
   // ХРАНЕНИЕ СЧИТАЕМ ПО ВОЛНАМ ЗАКУПКИ, А НЕ ЗА ВЕСЬ ПЕРИОД.
   //
   // Здесь была ЛОЖНАЯ ТРЕВОГА: скрипт складывал продукт за все 30 дней
