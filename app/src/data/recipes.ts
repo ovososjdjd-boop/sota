@@ -2849,6 +2849,90 @@ export const RECIPES: Recipe[] = [
       { productId: 'sunflower_oil', grams: 8 },
     ],
   },
+  // ═══════════ Десерты ═══════════
+  //
+  // Отзыв: «Я сказал, что иногда хочу сладкого. Нашлось: оладьи
+  // с мёдом, сырники, чай с вареньем. Это завтраки и напитки,
+  // а не десерт. Приложение как будто считает сладкое грехом,
+  // который надо спрятать в кашу».
+  //
+  // Это справедливо. Рацион, где нельзя съесть кусок шарлотки,
+  // человек не выдержит — он просто сорвётся и купит торт.
+  // Честнее заложить десерт в план: тогда он и по калориям учтён,
+  // и по деньгам. Роль snack, слот только перекус — десерт
+  // не заменяет еду, а дополняет её.
+  {
+    id: 'charlotte_apple', name: 'Шарлотка с яблоками', role: 'snack',
+    slots: ['snack'], minutes: 45, batchPortions: 6, keepsDays: 3,
+    requires: ['oven'],
+    tags: ['vegetarian', 'dessert'],
+    ingredients: [
+      { productId: 'apple', grams: 110, method: 'baked' },
+      { productId: 'flour', grams: 40 },
+      { productId: 'eggs', grams: 40 },
+      { productId: 'sugar', grams: 30 },
+      { productId: 'butter', grams: 8 },
+    ],
+  },
+  {
+    id: 'curd_casserole_sweet', name: 'Творожная запеканка со сгущёнкой', role: 'snack',
+    slots: ['snack'], minutes: 40, batchPortions: 5, keepsDays: 3,
+    requires: ['oven'],
+    tags: ['vegetarian', 'dessert'],
+    ingredients: [
+      { productId: 'cottage_cheese', grams: 130 },
+      { productId: 'eggs', grams: 35 },
+      { productId: 'semolina', grams: 20 },
+      { productId: 'condensed_milk', grams: 25 },
+      { productId: 'raisins', grams: 15 },
+    ],
+  },
+  {
+    id: 'pancakes_jam', name: 'Блины с вареньем', role: 'snack',
+    slots: ['snack'], minutes: 35, batchPortions: 4, keepsDays: 2,
+    requires: ['stove'],
+    tags: ['vegetarian', 'dessert'],
+    ingredients: [
+      { productId: 'flour', grams: 55 },
+      { productId: 'milk', grams: 150 },
+      { productId: 'eggs', grams: 30 },
+      { productId: 'jam', grams: 30 },
+      { productId: 'sunflower_oil', grams: 10 },
+      { productId: 'sugar', grams: 8 },
+    ],
+  },
+  {
+    id: 'chocolate_square', name: 'Долька шоколада к чаю', role: 'snack',
+    slots: ['snack'], minutes: 2, batchPortions: 1, keepsDays: 0,
+    tags: ['vegetarian', 'dessert', 'no-cook', 'quick'],
+    ingredients: [
+      { productId: 'chocolate_dark', grams: 25 },
+      { productId: 'tea', grams: 2 },
+    ],
+  },
+  {
+    id: 'baked_apple_honey', name: 'Печёные яблоки с мёдом', role: 'snack',
+    slots: ['snack'], minutes: 30, batchPortions: 3, keepsDays: 2,
+    requires: ['oven'],
+    tags: ['vegetarian', 'gluten-free', 'dessert'],
+    ingredients: [
+      { productId: 'apple', grams: 180, method: 'baked' },
+      { productId: 'honey', grams: 15 },
+      { productId: 'walnuts', grams: 12 },
+    ],
+  },
+  {
+    id: 'curd_berry_dessert', name: 'Творожный десерт с ягодами', role: 'snack',
+    slots: ['snack'], minutes: 5, batchPortions: 1, keepsDays: 0,
+    requires: ['blender'],
+    tags: ['vegetarian', 'gluten-free', 'dessert', 'no-cook', 'quick'],
+    ingredients: [
+      { productId: 'cottage_cheese', grams: 120 },
+      { productId: 'frozen_berries', grams: 70 },
+      { productId: 'honey', grams: 12 },
+      { productId: 'sour_cream', grams: 20 },
+    ],
+  },
 ];
 
 

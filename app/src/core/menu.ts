@@ -473,6 +473,21 @@ function balanceDays(schedule: PlannedDay[], eaters: number): void {
         // в сытом дне это единственное блюдо приёма — не оголяем приём
         if (meal.dishes.length === 1 && meal.slot !== 'snack') continue;
 
+        // Нельзя уносить ОСНОВУ приёма: обед без супа и основного —
+        // это не обед. Тест «каждый обед содержит суп или основное»
+        // поймал ровно это: балансировка вынимала последнее основное
+        // блюдо, оставляя салат и гарнир.
+        const coreHere = CORE_ROLES[meal.slot] ?? [];
+        if (coreHere.includes(dish.recipe.role)) {
+          const otherCore = meal.dishes.some(
+            (x, xi) => xi !== k && coreHere.includes(x.recipe.role),
+          );
+          if (!otherCore) continue;
+        }
+
+        // ...и нельзя приносить блюдо в приём, которому оно не подходит
+        if (!dish.recipe.slots.includes(target.slot)) continue;
+
         const kcal = dish.stats.nutrients.kcal * dish.portions;
         // перенос не должен перевернуть картину: голодный день
         // не обязан стать сытнее донора
