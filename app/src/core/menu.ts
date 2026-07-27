@@ -446,6 +446,10 @@ function sweepRemainder(
 
             const served = servedDays.get(recipe.id) ?? [];
             if (served.some((d) => Math.abs(day.index - d) < stage.minGap)) continue;
+            // Одно блюдо дважды в один день — сбой, а не разнообразие.
+            // На финальной стадии minGap равен 1, и без явной проверки
+            // уборщик мог поставить то же блюдо в обед и в ужин.
+            if (served.includes(day.index)) continue;
 
             const group = ROLE_GROUP[recipe.role] ?? recipe.role;
             const sameGroup = meal.dishes.filter(
@@ -720,6 +724,26 @@ function pickDishForMeal(
         recipe.keepsDays > 0 && wasCookedRecently(schedule, recipe, day.index);
       if (!canFinishLeftovers && served.some((d) => Math.abs(day.index - d) < relax.repeatGap)) {
         continue;
+      }
+      // НО НЕ ДВАЖДЫ ЗА ОДИН ДЕНЬ.
+      //
+      // Отзыв: «День 7: Гречка с курицей на обед И на ужин. День 19
+      // и 30: Куриное филе с рисом на обед И на ужин». Доедание
+      // вчерашнего — нормально, но одно и то же блюдо дважды в сутки
+      // человек воспринимает как сбой, а не как заботу.
+      if (served.includes(day.index)) continue;
+
+      // И НЕ ТРИ ДНЯ ПОДРЯД.
+      //
+      // Отзыв: «Дни 5, 6, 7 — пшённая каша каждое утро». Формально
+      // это доедание: у каши keepsDays = 2, значит модель считает,
+      // что кастрюля живёт до третьего дня. Но человек ест не модель,
+      // а кашу — и на третье утро подряд она надоедает.
+      // Два дня подряд — доел вчерашнее. Три — уже однообразие.
+      if (canFinishLeftovers) {
+        const yesterday = served.includes(day.index - 1);
+        const beforeThat = served.includes(day.index - 2);
+        if (yesterday && beforeThat) continue;
       }
     }
 
