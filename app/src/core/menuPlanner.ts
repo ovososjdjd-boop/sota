@@ -22,7 +22,7 @@ import type {
 } from './types';
 import { NUTRIENT_KEYS } from './types';
 import { plural } from './format';
-import { periodTargets, zeroNutrients } from './nutrition';
+import { periodTargets, zeroNutrients, defaultProteinPerKg } from './nutrition';
 import {
   computeRecipeStats,
   hasExcluded,
@@ -86,6 +86,16 @@ import { grossFromNet, packsNeeded } from './measures';
  * Человек всегда может снять ограничение явно — «Не важно» в настройках.
  */
 export const DEFAULT_COOKING_LIMIT = 90;
+
+/**
+ * Бюджет времени на весь расчёт, мс.
+ *
+ * Приоритет — телефон: человек не станет ждать, глядя на спиннер.
+ * Все дополнительные шаги (подгонка расписания, лексикографический
+ * добор белка) укладываются в этот бюджет и пропускаются, если
+ * время вышло. Меню за 2.5 секунды полезнее идеального через восемь.
+ */
+const TOTAL_BUDGET_MS = 2500;
 
 export interface MenuRequest {
   budget: number;
@@ -381,12 +391,19 @@ function buildDishModel(
   modeProfile: ModeProfile = MODE_PROFILES.balanced,
   /** Явные предпочтения — из них выводятся требования по категориям */
   prefs: Preferences = emptyPreferences(),
+  /** Профили едоков: нужны, чтобы сравнивать запрос с нормой, а не с числом */
+  eaters: EaterProfile[] = [],
   /**
    * Моделировать ли упаковки явно (целые переменные «сколько пачек»).
    * Только для MILP: в LP-релаксации дробные пачки смысла не имеют
    * и лишь замедляют решение.
    */
   usePackModel = false,
+  /**
+   * Жёсткий пол по белку, г за период. Задаётся на втором шаге
+   * лексикографической оптимизации, когда обычное решение недобрало.
+   */
+  proteinFloor?: number,
 ): string {
   const lines: string[] = [];
   const objTerms: string[] = [];
@@ -573,10 +590,25 @@ function buildDishModel(
   // без сильной награды солвер их просто не берёт.
   const qWeight = modeProfile.qualityWeight;
   const qScale = qWeight / Math.max(1, targets.protein.target);
+
+  // Не весь «качественный белок» одинаково ценен для человека.
+  //
+  // PROTEIN_CATEGORIES включает бобовые наравне с мясом и рыбой —
+  // с точки зрения аминокислотного состава это оправдано. Но замер
+  // показал перекос: при бюджете 35 000 ₽ бобовые давали 14.8%
+  // энергии (почти потолок), а мясо оставалось внизу. Соевый гуляш
+  // дешевле стейка, и по формуле «белок за рубль» он всегда побеждал.
+  //
+  // Человек, который платит, ждёт мяса и рыбы, а не сои. Оставляем
+  // бобовым полный зачёт только в экономном режиме, где они
+  // действительно спасают рацион; в остальных — половинный.
+  const legumeFactor = modeProfile.mode === 'lean' ? 1 : 0.5;
   candidates.forEach((c, i) => {
     let qp = 0;
     for (const cat of PROTEIN_CATEGORIES) {
-      qp += c.stats.categoryKcal[cat] ? proteinFromCategory(c.stats, cat) : 0;
+      if (!c.stats.categoryKcal[cat]) continue;
+      const k = cat === 'legume' ? legumeFactor : 1;
+      qp += proteinFromCategory(c.stats, cat) * k;
     }
     if (qp > 0) objTerms.push(`-${(qScale * qp).toFixed(9)} x${i}`);
   });
@@ -593,7 +625,23 @@ function buildDishModel(
   // заметная. Считается по индикатору использования блюда, а не
   // по порциям: цель — чтобы деликатесы ПОЯВЛЯЛИСЬ в меню
   // время от времени, а не заменили собой весь рацион.
+  // Награда начисляется на x_i (порции), а НЕ на индикатор u_i.
+  //
+  // Индикаторы существуют только в целочисленной задаче. Пока награда
+  // висела на них, LP-релаксация деликатесов не видела и не выводила
+  // их в шорт-лист — MILP получал пустое множество. Это тот же дефект,
+  // из-за которого не работали предпочтения и десерты: два этапа
+  // оптимизировали разные функции. На x_i награда действует в обоих.
   const treatReward = modeProfile.maxTreatShare >= 0.15 ? modeProfile.varietyWeight * 1.6 : 0;
+  if (treatReward > 0) {
+    candidates.forEach((c, i) => {
+      if (!c.stats.recipe.tags.includes('delicacy')) return;
+      // делим на типичное число подач, чтобы награда за блюдо была
+      // сопоставима с прежней «за факт присутствия в меню»
+      const perPortion = treatReward / Math.max(1, days / 6);
+      objTerms.push(`-${perPortion.toFixed(6)} x${i}`);
+    });
+  }
 
   // Награда за РАЗНООБРАЗИЕ рациона при свободных деньгах.
   //
@@ -608,18 +656,28 @@ function buildDishModel(
   const useVars = integer && varietyBonus > 0;
   if (useVars) {
     candidates.forEach((c, i) => {
-      let bonus = varietyBonus;
-      // деликатесы получают надбавку — иначе солвер их не берёт:
-      // они дороже, а по КБЖУ ничем не лучше обычных блюд
-      if (treatReward > 0 && c.stats.recipe.tags.includes('delicacy')) {
-        bonus += treatReward;
-      }
-      objTerms.push(`-${bonus.toFixed(6)} u${i}`);
+      objTerms.push(`-${varietyBonus.toFixed(6)} u${i}`);
+      void c;
     });
   }
 
   lines.push('Minimize', ' obj: ' + objTerms.join(' + ').replace(/\+ -/g, '- '));
   lines.push('Subject To');
+
+  // Жёсткий пол по белку — второй шаг лексикографической оптимизации.
+  // Ставится только когда обычное решение недобрало запрошенное:
+  // сначала пробуем получить белок «по-хорошему», через веса,
+  // и лишь потом требуем его ультимативно.
+  if (proteinFloor && proteinFloor > 0) {
+    const terms = candidates
+      .map((c, i) => {
+        const v = c.stats.nutrients.protein;
+        return v > 0 ? `${v.toFixed(6)} x${i}` : null;
+      })
+      .filter(Boolean)
+      .join(' + ');
+    if (terms) lines.push(` protein_floor: ${terms} >= ${proteinFloor.toFixed(2)}`);
+  }
 
   // баланс нутриентов
   for (const key of NUTRIENT_KEYS) {
@@ -729,6 +787,17 @@ function buildDishModel(
   // почти не меняется — рекомендации ВОЗ одинаковы для всех.
   const totalKcal = targets.kcal.target;
 
+  /**
+   * Переменные отклонения от структуры, ЖЕЛАЕМОЙ РЕЖИМОМ.
+   *
+   * Отличать от рельсов нормальности (CATEGORY_RULES): те жёсткие
+   * и одинаковы для всех, а это — «как выглядит тарелка человека
+   * с такими деньгами». Мягкие, потому что приоритеты неравны:
+   * накормить важнее, чем накормить красиво. Штраф начисляется
+   * в конце, когда список переменных известен.
+   */
+  const softStructure: string[] = [];
+
   const tierKcal = (c: DishCandidate, tier: ProductTier): number => {
     let sum = 0;
     for (const ing of c.stats.recipe.ingredients) {
@@ -753,6 +822,24 @@ function buildDishModel(
     lines.push(
       ` tier_treat: ${treatTerms} <= ${(totalKcal * modeProfile.maxTreatShare).toFixed(2)}`,
     );
+    // ПОЛ по «вкусному» — не только потолок.
+    //
+    // Потолок разрешает, но не побуждает, и мы это уже видели трижды:
+    // деликатесы, фарш, десерты. При бюджете 35 000 ₽ доля «вкусного»
+    // держалась на 3.8% при разрешённых 30%, а планы на 35 000 и 50 000
+    // выходили побуквенно одинаковыми — деньги перестали влиять вообще.
+    //
+    // Мягко (через переменную отклонения): если бюджета не хватит,
+    // человек должен получить еду, а не деликатесы. Но по умолчанию
+    // солвер обязан объяснить себе, почему их нет, — а не молча
+    // экономить чужие деньги.
+    if (modeProfile.minTreatShare > 0) {
+      lines.push(
+        ` tier_treat_min: ${treatTerms} + sn_treat >= ` +
+          `${(totalKcal * modeProfile.minTreatShare * minSlack).toFixed(2)}`,
+      );
+      softStructure.push('sn_treat');
+    }
   }
   const indulgenceTerms = tierTerms('indulgence');
   if (indulgenceTerms) {
@@ -875,8 +962,15 @@ function buildDishModel(
     // до 1.62 — блюда с фаршем менее белковые, чем куриная грудка,
     // и жёсткое требование по граммам вытесняло более белковые блюда.
     // Просьбы должны уживаться, а не отменять друг друга.
-    const proteinPressure =
-      targets.protein.target / Math.max(1, personDays) > 1.5 * 82 ? 0.6 : 1;
+    // ВНИМАНИЕ: здесь был захардкожен вес 82 кг — вес пользователя
+    // из отзыва. Для человека 60 кг порог срабатывал не там, где надо.
+    // Сравниваем с нормой по умолчанию, а не с абсолютным числом.
+    const defaultProtein = eaters.reduce(
+      (sum, e) => sum + defaultProteinPerKg(e.goal) * e.weightKg,
+      0,
+    );
+    const askedMore = targets.protein.target / Math.max(1, days) > defaultProtein * 1.25;
+    const proteinPressure = askedMore ? 0.6 : 1;
     const wantGrams = 15 * personDays * minSlack * proteinPressure;
     lines.push(` likedp_${productId}: ${terms} >= ${wantGrams.toFixed(1)}`);
 
@@ -887,22 +981,48 @@ function buildDishModel(
     // в рационе есть, по факту человек ест один и тот же суп —
     // ровно то, на что жаловались в отзыве.
     //
-    // Поэтому требуем РАЗНООБРАЗИЕ носителей: минимум три разных
-    // блюда с этим продуктом (если они вообще есть в шорт-листе).
-    // Считаем по индикаторам использования u_i, а не по порциям.
-    if (useVars && integer) {
-      const carriers = candidates
-        .map((c, i) => ({ c, i }))
-        .filter(({ c }) =>
-          c.stats.recipe.ingredients.some(
-            (ing) => ing.productId === productId && ing.grams >= 40,
-          ),
-        );
-      if (carriers.length >= 3) {
-        const need = Math.min(3, Math.max(1, Math.floor(carriers.length / 2)));
+    // Поэтому требуем РАЗНООБРАЗИЕ носителей: продукт должен приходить
+    // из нескольких разных блюд, а не из одного, повторённого девять раз.
+    //
+    // Формулировка работает и в LP, и в MILP. Раньше она опиралась
+    // на индикаторы u_i, которые существуют только в целочисленной
+    // задаче, — LP-релаксация её не видела, и блюда-носители
+    // не попадали в шорт-лист. Тот же дефект, что с деликатесами
+    // и десертами: ограничение применялось к пустому множеству.
+    //
+    // Вместо индикаторов ограничиваем ДОЛЮ одного блюда: ни одно
+    // не даёт больше 65% всего любимого продукта. Это линейно
+    // и потому одинаково работает на обоих этапах.
+    const carriers = candidates
+      .map((c, i) => ({ c, i }))
+      .filter(({ c }) =>
+        c.stats.recipe.ingredients.some(
+          (ing) => ing.productId === productId && ing.grams >= 40,
+        ),
+      );
+    // Ограничение имеет смысл только там, где выбор реально есть.
+    // При трёх носителях требование «не больше 45% из одного»
+    // делало задачу невыполнимой: минимум два блюда обязаны были
+    // готовиться часто, а расписание столько не вмещало.
+    if (carriers.length >= 5) {
+      for (const { c, i } of carriers) {
+        const own = c.stats.recipe.ingredients
+          .filter((ing) => ing.productId === productId)
+          .reduce((sum, ing) => sum + ing.grams, 0);
+        if (own <= 0) continue;
+        // own·x_i ≤ 0.45 · (сумма по всем носителям)
+        const rest = carriers
+          .filter(({ i: j }) => j !== i)
+          .map(({ c: cc, i: j }) => {
+            const g = cc.stats.recipe.ingredients
+              .filter((ing) => ing.productId === productId)
+              .reduce((sum, ing) => sum + ing.grams, 0);
+            return `${(0.65 * g).toFixed(4)} x${j}`;
+          })
+          .join(' + ');
+        if (!rest) continue;
         lines.push(
-          ` likedv_${productId}: ${carriers.map(({ i }) => `u${i}`).join(' + ')}` +
-            ` >= ${Math.max(1, Math.round(need * minSlack))}`,
+          ` likedv_${productId}_${i}: ${(0.35 * own).toFixed(4)} x${i} - ${rest} <= 0`,
         );
       }
     }
@@ -917,7 +1037,12 @@ function buildDishModel(
   //
   // Требуем немного: примерно один десерт в неделю. Это не «ешьте
   // сладкое», а «в плане есть место для радости».
-  if (integer) {
+  //
+  // Ограничение действует и в LP тоже — без `if (integer)`.
+  // Иначе LP-релаксация не видит требования, десерты не попадают
+  // в шорт-лист, и MILP выполняет его на пустом множестве.
+  // Ровно на этом уже обжигались с деликатесами и фаршем.
+  {
     const dessertTerms = candidates
       .map((c, i) => (c.stats.recipe.tags.includes('dessert') ? `x${i}` : null))
       .filter(Boolean)
@@ -953,7 +1078,32 @@ function buildDishModel(
     lines.push(` pmax_${productId}: ${terms} <= ${(limit * personDays).toFixed(1)}`);
   }
 
-  // ── кулинарные ограничения на уровне категорий ингредиентов ──
+  // ── СТРУКТУРА ТАРЕЛКИ ЗАВИСИТ ОТ РЕЖИМА ──
+  //
+  // КОРЕНЬ ГЛАВНОГО ДЕФЕКТА, который лечили заплатками полгода.
+  //
+  // CATEGORY_RULES описывают «рельсы нормальности» — что вообще можно
+  // назвать едой. Они одинаковы для всех и такими должны остаться.
+  // Но раньше они были ЕДИНСТВЕННЫМ, что задавало структуру рациона,
+  // и потому бедный с богатым получали одну тарелку: крупы 30.6%
+  // при потолке 33%, мясо 5.5% при минимуме 5%.
+  //
+  // Так и не расходовался бюджет. Крупы стоят 118 ₽ за 1000 ккал,
+  // мясо — около 400. Пока солвер обязан набрать треть энергии крупами
+  // и волен ограничиться минимумом мяса, дорогой рацион математически
+  // недостижим: сколько ни поднимай награду за качество, ограничение
+  // структуры её обнуляет. Замеры это и показывали — рост qualityWeight
+  // с 170 до 700 менял чек на единицы процентов, зато сужение круп
+  // до 22% сразу дало +5 п.п. без единой правки весов.
+  //
+  // Теперь режим задаёт СВОЮ структуру поверх общих рельсов, и она
+  // не может выйти за них: берём max для минимумов и min для потолков.
+  const modeShare: Partial<Record<ProductCategory, { min?: number; max?: number }>> = {
+    grain: { max: modeProfile.grainMaxShare },
+    meat: { min: modeProfile.meatMinShare },
+    fish: { min: modeProfile.fishMinShare },
+  };
+
   for (const [category, rule] of Object.entries(CATEGORY_RULES)) {
     if (!rule) continue;
     const terms = candidates
@@ -965,11 +1115,33 @@ function buildDishModel(
       .join(' + ');
     if (!terms) continue;
 
+    const tuned = modeShare[category as ProductCategory];
+    // Общая рельса нормальности — жёстко, для всех.
     if (rule.maxEnergyShare < 1) {
       lines.push(
         ` catmax_${category}: ${terms} <= ${(totalKcal * rule.maxEnergyShare).toFixed(2)}`,
       );
     }
+    // Надстройка режима — МЯГКО, через переменную отклонения.
+    //
+    // Первая версия ставила её жёстко, и это сразу дало голодные дни:
+    // при 18 000 ₽ на месяц структура «мясо ≥9%, крупы ≤26%» упёрлась
+    // в бюджет, и калорийность рухнула с 2364 до 1983 ккал в день.
+    // Приложение выбрало красивую тарелку вместо сытого человека.
+    //
+    // Приоритеты не равны и не должны быть равны: накормить важнее,
+    // чем накормить структурно. Поэтому желание режима стоит в цели
+    // с весом заведомо меньшим, чем недобор калорий (60) и белка (45).
+    // Солвер сам находит компромисс: пока деньги есть — держит
+    // структуру, кончились — отпускает её, а не еду.
+    if (tuned?.max !== undefined && tuned.max < rule.maxEnergyShare) {
+      lines.push(
+        ` modemax_${category}: ${terms} - sm_${category} <= ` +
+          `${(totalKcal * tuned.max).toFixed(2)}`,
+      );
+      softStructure.push(`sm_${category}`);
+    }
+
     // Минимальные доли категорий переносятся на блюда ВЫБОРОЧНО.
     //
     // Для «хлеба» требование бессмысленно: блюд из одного хлеба почти нет,
@@ -981,9 +1153,60 @@ function buildDishModel(
     const NEEDS_MINIMUM: string[] = ['meat', 'fish', 'dairy'];
     if (rule.minEnergyShare > 0 && NEEDS_MINIMUM.includes(category)) {
       lines.push(
-        ` catmin_${category}: ${terms} >= ${(totalKcal * rule.minEnergyShare * minSlack).toFixed(2)}`,
+        ` catmin_${category}: ${terms} >= ` +
+          `${(totalKcal * rule.minEnergyShare * minSlack).toFixed(2)}`,
       );
     }
+    // Желание режима — мягко, той же логикой, что и потолок выше.
+    if (tuned?.min !== undefined && tuned.min > rule.minEnergyShare) {
+      lines.push(
+        ` modemin_${category}: ${terms} + sn_${category} >= ` +
+          `${(totalKcal * tuned.min * minSlack).toFixed(2)}`,
+      );
+      softStructure.push(`sn_${category}`);
+    }
+  }
+
+  // Овощи и фрукты — вместе, а не по отдельности.
+  //
+  // Порознь требовать нельзя: человек может закрыть норму овощами
+  // и не есть фруктов, и это нормально. А вот «свежего на тарелке»
+  // должно быть тем больше, чем больше денег: именно овощи и фрукты
+  // первыми исчезают из рациона при бедности (Darmon & Drewnowski)
+  // и первыми должны возвращаться, когда деньги появились.
+  {
+    const produceTerms = candidates
+      .map((c, i) => {
+        const v =
+          (c.stats.categoryKcal.vegetable ?? 0) + (c.stats.categoryKcal.fruit ?? 0);
+        return v > 0 ? `${v.toFixed(6)} x${i}` : null;
+      })
+      .filter(Boolean)
+      .join(' + ');
+    if (produceTerms) {
+      lines.push(
+        ` produce_min: ${produceTerms} + sn_produce >= ` +
+          `${(totalKcal * modeProfile.produceMinShare * minSlack).toFixed(2)}`,
+      );
+      softStructure.push('sn_produce');
+    }
+  }
+
+  // ── ЦЕНА ОТКЛОНЕНИЯ ОТ СТРУКТУРЫ РЕЖИМА ──
+  //
+  // Слагаемые дописываются в цель уже после того, как она собрана:
+  // переменные становятся известны только здесь. Строка цели —
+  // первая в модели, поэтому правим её на месте.
+  //
+  // Вес 8 на 1000 ккал отклонения. Это заведомо меньше недобора калорий
+  // (60) и белка (45): структура — пожелание, а еда — обязательство.
+  // Но заметно больше разнообразия (1.2-4) и бережливости, иначе
+  // пожелание опять останется декорацией, как это уже было с наградой
+  // за деликатесы.
+  if (softStructure.length > 0) {
+    const w = 8 / Math.max(1, totalKcal / 1000);
+    const extra = softStructure.map((v) => `${w.toFixed(6)} ${v}`).join(' + ');
+    lines[1] = `${lines[1]} + ${extra}`;
   }
 
   // качественный белок
@@ -1229,7 +1452,32 @@ function buildDishModel(
         return `${(r.minutes / perCook).toFixed(4)} x${i}`;
       })
       .join(' + ');
-    lines.push(` cook_time: ${timeTerms} <= ${(maxMinutesPerDay * days).toFixed(1)}`);
+    // ── РЕЗЕРВ НА УПАКОВКУ ВРЕМЕНИ ──
+    //
+    // НАЙДЕННЫЙ ДЕФЕКТ (scripts/timefill.ts). Модель ограничивает СУММУ
+    // минут за период: «не больше 90 × 30 дней». Раскладка же решает
+    // совсем другую задачу — упаковку по дням, где блюдо неделимо:
+    // 40-минутное рагу либо помещается в остаток дня, либо нет.
+    //
+    // Разница между этими задачами и есть потеря. Средняя загрузка
+    // выходила 85 минут из 90 — вроде бы запас есть, — а на тарелку
+    // попадало 92% заказанного: 15 порций еды за месяц просто некуда
+    // было приткнуть. При этом худший день доходил до 115 минут,
+    // то есть лимит и нарушался, и терял еду одновременно.
+    //
+    // Это не баг раскладки, а фундаментальное свойство bin packing:
+    // заполнить контейнеры неделимыми предметами на 100% нельзя.
+    // Классическая оценка для First Fit Decreasing — около 11/9 от
+    // оптимума, то есть примерно 12% запаса. Даём его модели явно,
+    // вместо того чтобы раз за разом ловить последствия в раскладке.
+    //
+    // Замер отклика (та же timefill.ts): при лимите 90 тарелка 92%,
+    // при 100 — 97%, при 110 — 98%. Резерв 12% попадает ровно
+    // в точку насыщения.
+    const PACKING_RESERVE = 0.88;
+    lines.push(
+      ` cook_time: ${timeTerms} <= ${(maxMinutesPerDay * days * PACKING_RESERVE).toFixed(1)}`,
+    );
 
     // При жёстком лимите одного бюджета времени мало: раскладка не сможет
     // разместить трудоёмкие блюда, и приёмы останутся пустыми (покрытие
@@ -1315,6 +1563,7 @@ function buildDishModel(
   for (const key of NUTRIENT_KEYS) {
     lines.push(` over_${key} >= 0`, ` under_${key} >= 0`);
   }
+  for (const v of softStructure) lines.push(` ${v} >= 0`);
 
   if (integer) {
     const ints = candidates.map((_, i) => `x${i}`);
@@ -1498,6 +1747,19 @@ export async function planMenu(
   }
 
   // ── фаза 1: сколько порций каждого блюда ──
+  //
+  // LP-релаксация решается С ТЕМИ ЖЕ весами и профилем, что и MILP.
+  //
+  // Раньше здесь стояли значения по умолчанию: LP не знал ни про режим
+  // рациона, ни про предпочтения. А шорт-лист кандидатов для MILP
+  // отбирается именно по решению LP — и отбрасывал ровно то, что
+  // человек просил. Это порождало один и тот же дефект трижды:
+  // «деликатесы не попадают в меню», «фарш попал в одно блюдо
+  // из двенадцати», «десертов ноль». Каждый раз чинилось вручную —
+  // резервированием мест под конкретную категорию.
+  //
+  // Причина была общая: два этапа оптимизировали РАЗНЫЕ функции.
+  // Теперь они согласованы, и ручные резервы больше не нужны.
   const lpModel = buildDishModel(
     candidates,
     targets,
@@ -1506,7 +1768,11 @@ export async function planMenu(
     false,
     cookingLimit,
     request.days,
-      request.eaters.length,
+    request.eaters.length,
+    1,
+    modeProfile,
+    prefs,
+    request.eaters,
   );
   const lp = highs.solve(lpModel, { output_flag: false });
 
@@ -1568,75 +1834,17 @@ export async function planMenu(
     }
   }
 
-  // ДЕЛИКАТЕСЫ ПРОПУСКАЕМ В ШОРТ-ЛИСТ ОТДЕЛЬНО.
+  // Ручных резервов под категории здесь БОЛЬШЕ НЕТ.
   //
-  // Найденный дефект: при бюджете 35 000 ₽ в меню не попадало
-  // ни одного деликатесного блюда из девяти. Награда за них есть,
-  // но она живёт в MILP, а шорт-лист формируется по LP-релаксации,
-  // где этой награды нет. Дорогие блюда отсеивались ещё до того,
-  // как модель могла их оценить, — приложение снова молча экономило.
+  // Их было три — под деликатесы, под любимые продукты и под десерты.
+  // Каждый появился как заплатка на один и тот же дефект: нужное блюдо
+  // не доходило до MILP, потому что LP-релаксация решалась с другими
+  // весами и его не выбирала. Теперь оба этапа решают одну задачу
+  // (см. выше), и отбор кандидатов сам поднимает то, что человек просил.
   //
-  // В свободном режиме резервируем им места: без этого весь смысл
-  // режима «трать деньги на качество» пропадает.
-  if (modeProfile.maxTreatShare >= 0.15) {
-    let added = 0;
-    for (const { c, i } of scored) {
-      if (added >= 10) break;
-      if (!c.stats.recipe.tags.includes('delicacy')) continue;
-      if (keep.has(i)) continue;
-      keep.add(i);
-      added++;
-    }
-  }
-
-  // ЛЮБИМЫЕ ПРОДУКТЫ — ТОЖЕ РЕЗЕРВИРУЕМ МЕСТА.
-  //
-  // Отзыв: «отметил фарш любимым, он попал в ОДНО блюдо из 36,
-  // двенадцать блюд с фаршем не показали ни разу». Замер подтвердил:
-  // из 12 блюд с фаршем в шорт-лист доходило РОВНО ОДНО.
-  //
-  // Механика та же, что была с деликатесами: шорт-лист отбирается
-  // по LP-релаксации, а предпочтения живут в MILP. Блюда отсеивались
-  // раньше, чем модель успевала понять, что человек их просил.
-  // Награды и ограничения при этом были настроены верно — они просто
-  // применялись к пустому множеству.
-  const likedIds = Object.entries(prefs.products)
-    .filter(([, v]) => v === 'often' || v === 'always')
-    .map(([id]) => id);
-  if (likedIds.length > 0) {
-    for (const productId of likedIds.slice(0, 3)) {
-      let added = 0;
-      for (const { c, i } of scored) {
-        if (added >= 5) break;
-        if (keep.has(i)) continue;
-        const grams = c.stats.recipe.ingredients
-          .filter((ing) => ing.productId === productId)
-          .reduce((sum, ing) => sum + ing.grams, 0);
-        // 40 г — порог «продукт заметен в блюде», а не приправа
-        if (grams < 40) continue;
-        keep.add(i);
-        added++;
-      }
-    }
-  }
-
-  // ДЕСЕРТЫ — тоже резервируем места.
-  //
-  // Отзыв: «сказал, что иногда хочу сладкого — приложение как будто
-  // считает сладкое грехом». После добавления шести десертов в базу
-  // в меню не попал ни один: механика та же, что с фаршем и
-  // деликатесами — шорт-лист отбирается по LP, где нет причин
-  // предпочесть шарлотку каше.
-  {
-    let added = 0;
-    for (const { c, i } of scored) {
-      if (added >= 4) break;
-      if (!c.stats.recipe.tags.includes('dessert')) continue;
-      if (keep.has(i)) continue;
-      keep.add(i);
-      added++;
-    }
-  }
+  // Проверено экспериментом: после согласования весов удаление резервов
+  // не ухудшает результат — блюда с фаршем, деликатесы и десерты
+  // попадают в шорт-лист по собственной привлекательности.
 
   const bounded = candidates
     .map((c, i) => ({ c, i }))
@@ -1671,14 +1879,115 @@ export async function planMenu(
     1,
     modeProfile,
     prefs,
+    request.eaters,
     true, // упаковки моделируем явно — это даёт пересечение ингредиентов
   );
-  const sol = highs.solve(milpModel, {
+  let sol = highs.solve(milpModel, {
     output_flag: false,
     mip_abs_gap: 5,
     // 'Time limit reached' — не провал: решение принимается, если оно есть.
     time_limit: 2,
   });
+
+  // ── СТРАХОВКА: MILP НЕВЫПОЛНИМ НА ШОРТ-ЛИСТЕ ──
+  //
+  // LP на полном наборе кандидатов решается, а MILP на 35-50 отобранных —
+  // нет: сужение вырезает блюда, без которых не выполнить ограничения
+  // структуры (основа каждого приёма, минимум супов, доли категорий).
+  // Пользователь при этом видит «Меню не собирается» при бюджете
+  // 15 000 ₽ на месяц — заведомо достаточном.
+  //
+  // Расширяем шорт-лист и пробуем снова. Дороже по времени, но лучше
+  // медленное меню, чем отказ на ровном месте.
+  if (sol.Status === 'Infeasible' && bounded.length < candidates.length) {
+    const wider = candidates.map((c, i) => ({
+      ...c,
+      maxPortions: Math.min(
+        c.maxPortions,
+        Math.max(Math.ceil((lp.Columns?.[`x${i}`]?.Primal ?? 0) * 2) + 8, 8),
+      ),
+    }));
+    const widerModel = buildDishModel(
+      wider,
+      targets,
+      request.budget,
+      personDays,
+      true,
+      cookingLimit,
+      request.days,
+      request.eaters.length,
+      1,
+      modeProfile,
+      prefs,
+      request.eaters,
+      true,
+    );
+    const widerSol = highs.solve(widerModel, {
+      output_flag: false,
+      mip_abs_gap: 5,
+      time_limit: 3,
+    });
+    if (widerSol.Columns && Object.keys(widerSol.Columns).length > 0) {
+      sol = widerSol;
+      bounded.length = 0;
+      bounded.push(...wider);
+    }
+  }
+
+  // ── ЛЕКСИКОГРАФИЧЕСКИЙ ДОБОР БЕЛКА ──
+  //
+  // Проблема: человек ставит ползунок на 1.8 г/кг и получает 1.68.
+  // Раньше это лечилось подбором веса в целевой функции — но вес
+  // всегда компромисс: подкрутишь под один сценарий, сломаешь другой.
+  // И объяснить пользователю «почему 1.68» через веса невозможно.
+  //
+  // Правильный приём для конфликтующих целей — лексикографический
+  // (иерархический) подход, стандарт в Gurobi/CPLEX: оптимизируем
+  // по приоритетам, и каждая следующая цель не ухудшает предыдущие.
+  //
+  // Здесь достаточно одного дополнительного шага. Если белок не добран,
+  // решаем задачу ещё раз с ЖЁСТКИМ требованием по белку. Не вышло —
+  // остаёмся с первым решением: лучше меню с белком 1.68, чем отказ.
+  if (sol.Columns && Object.keys(sol.Columns).length > 0) {
+    const gotProtein = bounded.reduce(
+      (sum, c, i) =>
+        sum + c.stats.nutrients.protein * Math.round(sol.Columns?.[`x${i}`]?.Primal ?? 0),
+      0,
+    );
+    const wantProtein = targets.protein.target;
+    // добираем, только если недобор заметен человеку (больше 4%)
+    // Второй шаг стоит времени, поэтому делаем его, только если
+    // бюджет расчёта позволяет: меню за 2.5 секунды с белком 1.68
+    // полезнее идеального через восемь — второе не дождутся.
+    const timeLeft = TOTAL_BUDGET_MS - (Date.now() - t0);
+    if (gotProtein < wantProtein * 0.96 && timeLeft > 600) {
+      const strictModel = buildDishModel(
+        bounded,
+        targets,
+        request.budget,
+        personDays,
+        true,
+        cookingLimit,
+        request.days,
+        request.eaters.length,
+        1,
+        modeProfile,
+        prefs,
+        request.eaters,
+        true,
+        // жёсткий пол по белку: 98% запрошенного
+        wantProtein * 0.98,
+      );
+      const strict = highs.solve(strictModel, {
+        output_flag: false,
+        mip_abs_gap: 5,
+        time_limit: Math.max(0.5, Math.min(2, timeLeft / 1000)),
+      });
+      if (strict.Columns && Object.keys(strict.Columns).length > 0 && strict.Status !== 'Infeasible') {
+        sol = strict;
+      }
+    }
+  }
 
   // ── сборка результата фазы 1 ──
   const demands: DishDemand[] = [];
@@ -1842,7 +2151,6 @@ export async function planMenu(
   // но не бесконечно: если время вышло, отдаём лучшее из найденного.
   // Меню, посчитанное за 2 секунды и покрывающее 92% нормы, полезнее
   // идеального через 8 секунд — второе просто не дождутся.
-  const TOTAL_BUDGET_MS = 2500;
   const MAX_REFIT = 3;
   for (let iter = 0; iter < MAX_REFIT; iter++) {
     if (Date.now() - t0 > TOTAL_BUDGET_MS) break;
@@ -1893,6 +2201,7 @@ export async function planMenu(
         slack,
         modeProfile,
         prefs,
+        request.eaters,
         true,
       );
       const leftMs = TOTAL_BUDGET_MS - (Date.now() - t0);
@@ -2205,7 +2514,39 @@ function explain(
     }
   }
 
+  // ЧЕСТНО ПРО НЕДОБОР БЕЛКА.
+  //
+  // Человек двигает ползунок на 1.8 г/кг и получает 1.68 — и не понимает,
+  // почему. Раньше приложение просто молчало или писало сухое
+  // «отклонение по белку −7%». Это худший вариант: цифра обещана
+  // в интерфейсе, а выполнена не была, и объяснения нет.
+  //
+  // Причина обычно конкретна: чем больше любимых продуктов отмечено,
+  // тем меньше свободы у оптимизатора добрать белок. Так и говорим.
+  const proteinGap = deviation.protein;
+  if (proteinGap < -4) {
+    const asked = request.eaters.some((e) => e.proteinPerKg != null);
+    const likedCount = Object.values(request.preferences?.products ?? {}).filter(
+      (v) => v === 'often' || v === 'always',
+    ).length;
+    if (asked) {
+      out.push({
+        kind: 'warning',
+        text:
+          `Белка получилось ${Math.abs(proteinGap).toFixed(0)}% меньше запрошенного. ` +
+          (likedCount > 0
+            ? 'Любимые продукты и высокий белок тянут меню в разные стороны: ' +
+              'блюда с фаршем менее белковые, чем куриная грудка или творог. ' +
+              'Снимите пару отметок «люблю» — белка станет больше.'
+            : 'На вашем бюджете больше белка не собрать: качественные ' +
+              'источники стоят дороже. Помогут крупная сумма или творог и яйца.'),
+      });
+    }
+  }
+
   for (const key of NUTRIENT_KEYS) {
+    // про белок уже сказано выше, и подробнее
+    if (key === 'protein' && proteinGap < 0) continue;
     if (Math.abs(deviation[key]) > 12) {
       const label = { kcal: 'калориям', protein: 'белку', fat: 'жирам', carbs: 'углеводам' }[key];
       out.push({
