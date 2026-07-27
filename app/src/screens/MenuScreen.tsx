@@ -322,6 +322,7 @@ export function MenuScreen({ store }: { store: Store }) {
           eaters={state.eaters.length}
           alternatives={alternatives}
           onClose={() => setSwapping(null)}
+          onMark={(event) => store.markDish(swapping.dish.recipe.id, event)}
           onPick={(alt) => {
             swapDish(activeDay, swapping.slot, swapping.dish.recipe.id, alt.stats);
             setSwapping(null);

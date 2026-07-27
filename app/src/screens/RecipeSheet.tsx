@@ -30,14 +30,18 @@ export function RecipeSheet({
   alternatives,
   onPick,
   onClose,
+  onMark,
 }: {
   dish: PlannedDish;
   eaters: number;
   alternatives: SwapCandidate[];
   onPick: (c: SwapCandidate) => void;
   onClose: () => void;
+  /** Отметить, что человек сделал с блюдом — приложение учится */
+  onMark?: (event: 'cooked' | 'skipped') => void;
 }) {
   const [tab, setTab] = useState<'recipe' | 'swap'>('recipe');
+  const [marked, setMarked] = useState<'cooked' | 'skipped' | null>(null);
 
   const portions = Math.max(1, dish.portions);
   const items = useMemo(
@@ -164,6 +168,56 @@ export function RecipeSheet({
                   ))}
                 </ol>
               </>
+            )}
+
+            {/*
+              ОТМЕТКИ ДЛЯ ОБУЧЕНИЯ. Два касания вместо анкеты на 200 блюд.
+              Приложение запоминает и в следующем плане предлагает
+              похожее чаще или реже. Меню сейчас НЕ пересчитывается:
+              перестраивать план под ногами человека, который только что
+              отметил «приготовил», — худшее, что можно сделать.
+            */}
+            {onMark && (
+              <div className="mt-6 rounded-2xl bg-surface-50 p-4 dark:bg-surface-800/50">
+                <div className="mb-2.5 text-[13px] font-semibold text-surface-700 dark:text-surface-200">
+                  Приготовили это блюдо?
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      onMark('cooked');
+                      setMarked('cooked');
+                    }}
+                    className={cx(
+                      'flex-1 rounded-xl py-2.5 text-[13px] font-semibold transition-all active:scale-[0.98]',
+                      marked === 'cooked'
+                        ? 'bg-brand-600 text-white'
+                        : 'bg-white text-surface-600 shadow-sm dark:bg-surface-700 dark:text-surface-200',
+                    )}
+                  >
+                    Да, готовил
+                  </button>
+                  <button
+                    onClick={() => {
+                      onMark('skipped');
+                      setMarked('skipped');
+                    }}
+                    className={cx(
+                      'flex-1 rounded-xl py-2.5 text-[13px] font-semibold transition-all active:scale-[0.98]',
+                      marked === 'skipped'
+                        ? 'bg-surface-600 text-white'
+                        : 'bg-white text-surface-600 shadow-sm dark:bg-surface-700 dark:text-surface-200',
+                    )}
+                  >
+                    Пропустил
+                  </button>
+                </div>
+                <p className="mt-2 text-[11px] leading-snug text-surface-400">
+                  {marked
+                    ? 'Запомнили. В следующем плане учтём — меню сейчас не меняется.'
+                    : 'Приложение подстроится под то, что вы реально готовите'}
+                </p>
+              </div>
             )}
 
             <p className="mt-6 text-center text-[11px] leading-relaxed text-surface-400">
