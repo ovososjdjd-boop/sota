@@ -211,8 +211,39 @@ export function buildSchedule(
           continue;
         }
 
-        const target = day.meals.find((m) => recipe.slots.includes(m.slot));
+        // Десерт ставится ПЕРВЫМ, поэтому обязан быть скромным.
+        //
+        // Найденный дефект: проход выбирал первый подходящий приём
+        // и не смотрел на его вместимость. В результате завтрак дня 1
+        // получал блины, оладьи и гречку разом — 1474 ккал при норме
+        // 627 (235%), — а ужин того же дня оставался пустым, потому
+        // что дневной лимит калорий был уже выбран.
+        //
+        // Выбираем самый свободный из подходящих приёмов и ставим,
+        // только если десерт туда реально помещается.
+        const fits = day.meals
+          .filter((mm) => recipe.slots.includes(mm.slot))
+          .filter(
+            (mm) =>
+              mm.nutrients.kcal + entry.stats.nutrients.kcal <=
+              mm.targetKcal * 1.15,
+          )
+          .sort(
+            (a, b) =>
+              a.nutrients.kcal / Math.max(1, a.targetKcal) -
+              b.nutrients.kcal / Math.max(1, b.targetKcal),
+          );
+        const target = fits[0];
         if (!target) continue;
+
+        // ...и не переполняет день: десерт не должен съедать место,
+        // на котором потом не поместится ужин
+        if (
+          day.nutrients.kcal + entry.stats.nutrients.kcal >
+          day.targetKcal * 0.9
+        ) {
+          continue;
+        }
 
         // Время — по общим правилам, но с ЗАПАСОМ НА ОСТАЛЬНУЮ ЕДУ.
         //
@@ -704,9 +735,19 @@ function balanceDays(
         // привычки не двигаем: «кофе каждый день» — обещание
         if (dish.recipe.slots.length === 0) continue;
 
-        const target = hungry.meals.find(
-          (m) => m.slot === meal.slot || dish.recipe.slots.includes(m.slot),
-        );
+        // Целимся в САМЫЙ ГОЛОДНЫЙ подходящий приём, а не в первый.
+        //
+        // Найденный дефект: `find` возвращал первый по порядку слот —
+        // почти всегда завтрак. Он раздувался до 235% нормы, а ужин
+        // того же дня оставался пустым: еда приезжала в день, но
+        // не туда, где её не хватало.
+        const target = hungry.meals
+          .filter((m) => dish.recipe.slots.includes(m.slot))
+          .sort(
+            (a, b) =>
+              a.nutrients.kcal / Math.max(1, a.targetKcal) -
+              b.nutrients.kcal / Math.max(1, b.targetKcal),
+          )[0];
         if (!target) continue;
         // блюдо уже есть в этом дне — перенос создаст дубль
         if (hungry.meals.some((m) => m.dishes.some((x) => x.recipe.id === dish.recipe.id))) {
@@ -742,6 +783,15 @@ function balanceDays(
         // перенос не должен перевернуть картину: голодный день
         // не обязан стать сытнее донора
         if (hungry.nutrients.kcal + kcal > full.nutrients.kcal - kcal) continue;
+
+        // ...и не должен раздуть ПРИЁМ, в который приезжает.
+        //
+        // Найденный дефект: балансировка смотрела только на день целиком
+        // и сваливала перенесённое в первый подходящий приём. Завтрак
+        // дня 1 получал блины, гречку и оладьи разом — 1474 ккал при
+        // норме 627 (235%), — а ужин того же дня оставался пустым.
+        // День по сумме выглядел приличным, есть это невозможно.
+        if (target.nutrients.kcal + kcal > target.targetKcal * 1.35) continue;
 
         // ...и не должен взорвать бюджет времени принимающего дня.
         //
