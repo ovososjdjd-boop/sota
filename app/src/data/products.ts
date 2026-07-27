@@ -407,12 +407,12 @@ export const PRODUCTS: Product[] = [
   p('salt', 'Соль поваренная', 'other', 0, 0, 0, 0, 35, {
     measures: [volumeMeasure('tsp', 2.0), volumeMeasure('tbsp', 2.0)],
     packSizes: [1000],
-    tags: ['vegan', 'gluten-free'],
+    tags: ['vegan', 'gluten-free', 'condiment'],
   }),
   p('tea', 'Чай чёрный', 'other', 0, 0, 0, 0, 1284, {
     measures: [volumeMeasure('tsp', 0.4)],
     packSizes: [100, 200],
-    tags: ['vegan'],
+    tags: ['vegan', 'condiment'],
   }),
 
   // ───────────────── Расширение базы ─────────────────
@@ -782,12 +782,12 @@ export const PRODUCTS: Product[] = [
   }),
   p('coffee', 'Кофе молотый', 'other', 0, 0, 0, 0, 1450, {
     measures: [volumeMeasure('tsp', 0.6)],
-    packSizes: [250], shelfLifeDays: 365, tags: ['vegan'],
+    packSizes: [250], shelfLifeDays: 365, tags: ['vegan', 'condiment'],
   }),
   p('cocoa', 'Какао-порошок', 'other', 289, 24.2, 15.0, 10.2, 780, {
     fiber: 35.3,
     measures: [volumeMeasure('tsp', 0.5)],
-    packSizes: [100, 250], shelfLifeDays: 365, tags: ['vegan'],
+    packSizes: [100, 250], shelfLifeDays: 365, tags: ['vegan', 'condiment'],
   }),
   p('cookies', 'Печенье', 'sweet', 417, 7.5, 11.8, 74.4, 349, {
     fiber: 2.0,
