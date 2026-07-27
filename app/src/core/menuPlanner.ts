@@ -1043,7 +1043,8 @@ export async function planMenu(
   const sol = highs.solve(milpModel, {
     output_flag: false,
     mip_abs_gap: 5,
-    time_limit: 4,
+    // 'Time limit reached' — не провал: решение принимается, если оно есть.
+    time_limit: 2,
   });
 
   // ── сборка результата фазы 1 ──
@@ -1116,8 +1117,21 @@ export async function planMenu(
     return sum;
   };
 
+  // ── БЮДЖЕТ ВРЕМЕНИ НА РАСЧЁТ ──
+  //
+  // Приоритет — телефон: человек не станет ждать, глядя на спиннер.
+  // Модель упаковок добавила сотни целых переменных, и месячный план
+  // с лимитом готовки считался 8 секунд: каждая итерация подгонки
+  // решала MILP заново с лимитом 4 с.
+  //
+  // Теперь бюджет общий на весь расчёт. Подгонка улучшает результат,
+  // но не бесконечно: если время вышло, отдаём лучшее из найденного.
+  // Меню, посчитанное за 2 секунды и покрывающее 92% нормы, полезнее
+  // идеального через 8 секунд — второе просто не дождутся.
+  const TOTAL_BUDGET_MS = 2500;
   const MAX_REFIT = 3;
   for (let iter = 0; iter < MAX_REFIT; iter++) {
+    if (Date.now() - t0 > TOTAL_BUDGET_MS) break;
     const unplacedTotal = schedule.unplaced.reduce((s, x) => s + x.portions, 0);
     const orderedTotal = demands.reduce((s, d) => s + d.portions, 0);
     // 2% — шум раскладки, гоняться за ним не стоит
@@ -1165,7 +1179,13 @@ export async function planMenu(
         slack,
         true,
       );
-      const s = highs.solve(model, { output_flag: false, mip_abs_gap: 5, time_limit: 4 });
+      const leftMs = TOTAL_BUDGET_MS - (Date.now() - t0);
+      if (leftMs < 200) break;
+      const s = highs.solve(model, {
+        output_flag: false,
+        mip_abs_gap: 5,
+        time_limit: Math.max(0.3, leftMs / 1000),
+      });
       if (s.Columns && Object.keys(s.Columns).length > 0 && s.Status !== 'Infeasible') {
         refitSol = s;
         break;
